@@ -16,19 +16,37 @@ from ultralytics import YOLO
 from harmocap.identity import Detection
 
 
+def resolve_device(device: str) -> str:
+    """'auto' → cuda:0 (NVIDIA) / mps (Apple Silicon) / cpu, en ese orden."""
+    if device != "auto":
+        return device
+    try:
+        import torch
+        if torch.cuda.is_available():
+            return "cuda:0"
+        mps = getattr(torch.backends, "mps", None)
+        if mps is not None and mps.is_available():
+            return "mps"
+    except Exception:
+        pass
+    return "cpu"
+
+
 class PoseBackend:
     def __init__(self, *, realtime_checkpoint: str, fallback_checkpoint: str,
-                 device: str = "cuda:0", imgsz: int = 640, conf: float = 0.25,
+                 device: str = "auto", imgsz: int = 640, conf: float = 0.25,
                  max_det: int = 8, tracker: str = "bytetrack.yaml"):
         rt = Path(realtime_checkpoint)
-        if rt.exists():
+        # el .engine es TensorRT (solo NVIDIA): en Mac/CPU no existe (gitignored)
+        # y se cae automáticamente al checkpoint .pt de fallback
+        if rt.exists() and resolve_device(device).startswith("cuda"):
             self.loaded_checkpoint = str(rt)
             self.is_engine = rt.suffix == ".engine"
         else:
             self.loaded_checkpoint = fallback_checkpoint
             self.is_engine = False
         self.model = YOLO(self.loaded_checkpoint)
-        self.device = device
+        self.device = resolve_device(device)
         self.imgsz = imgsz
         self.conf = conf
         self.max_det = max_det
