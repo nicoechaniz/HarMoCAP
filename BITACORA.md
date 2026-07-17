@@ -40,3 +40,23 @@ Por decision del usuario, ambos repositorios quedaron publicos:
 - `AlterMundi/HarMoCAP`
 
 El repo organizacional fue creado y el personal cambio de privado a publico. El push dual local queda habilitado para sincronizar `main` en cada `git push origin`.
+
+## 2026-07-17 - S2 - Mensajes recursivos 002-003 integrados
+
+Los mensajes recursivos `002` y `003` agregaron el contexto operativo de GitHub:
+
+- `Mar-IA-no` autentica mediante el token OAuth de `gh`.
+- `AlterMundi` usa un PAT fine-grained separado, con `Contents R/W` solo sobre repositorios autorizados.
+- Crear un repositorio organizacional y pushear a uno existente son operaciones distintas.
+- El repositorio nuevo `AlterMundi/HarMoCAP` ya existe y es publico, pero el PAT de AlterMundi aun debe incluirlo en su allowlist para que el push automatico funcione.
+
+La prueba de `git push origin main` publico `a124285` en `Mar-IA-no` y recibio `403` en `AlterMundi`; el mismo commit fue publicado manualmente en el espejo con la credencial de `gh`. Por lo tanto, ambos `main` estan alineados en `a124285`, pero la sincronizacion automatica queda condicionada a que un owner agregue `AlterMundi/HarMoCAP` al PAT fine-grained. No se copiaron tokens a archivos del proyecto ni a la memoria colectiva.
+
+## 2026-07-17 - S3 - Sincronizacion GitHub verificada
+
+El usuario actualizo el PAT fine-grained de AlterMundi para incluir `HarMoCAP` con permiso de escritura. La prueba posterior de `git push origin main` termino correctamente para los dos destinos:
+
+- `Mar-IA-no/HarMoCAP`: publico, `main` en `a1242853cd6df0e3a0771c1edcc5fbe35a605931`.
+- `AlterMundi/HarMoCAP`: publico, `main` en `a1242853cd6df0e3a0771c1edcc5fbe35a605931`.
+
+La sincronizacion automatica del espejo queda operativa mediante los dos `pushurl` de `origin`.
