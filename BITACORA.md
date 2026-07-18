@@ -198,3 +198,35 @@ Próximos pasos para el /new:
 - Probar con cámara integrada a 720p para mejor encuadre de cuerpo entero.
 - Ajustar escena para usar features (no keypoints) si el bloqueo es específico de keypoints.
 
+## 2026-07-18 - S14 - Diagnóstico shaper: causa raíz encontrada y fixeada
+
+Diagnóstico offline con evidencia de la sesión viva (sin cámara): replay de `/tmp/live-test-session2.jsonl` (grabación real, 52k frames) a través del driver + engine reales con escena event-demo y clock virtual.
+
+Hallazgos:
+
+1. **La cadena shaper funciona con datos vivos.** Con el manifiesto corregido, las 5 voces disparan: N5 (cabeza) 23822 writes, N1 11895, N2 8616, N3 3569, N4 3115. El patrón refleja observabilidad real: nariz 97% OBSERVED, muñecas medias, tobillos mayormente fuera de cuadro a 640x480.
+2. **Causa raíz del fallo en vivo (dos bugs combinados):**
+   a. `weaver_runtime.harmocap_manifest()` declaraba TODAS las features con rango (0,1), pero `verticality` es signada (-1,1) según `schema.FEATURE_RANGES` del productor. Datos vivos producen verticality negativa (el fixture two_persons nunca lo hizo, por eso T4.5 pasó): 3243 frames de la sesión real violaban el rango.
+   b. `HarMoCAPDriver._emit` no atrapaba excepciones del consumidor: el raise de validación del engine mataba el thread del listener UDP. Sin listener, no hay más ingesta NI re-hello posible → gate "absent" permanente. Esto unifica todos los síntomas S13: crowd solo escribió en una ventana de 3 s (+157 a +160 s, antes de morir el thread), y las pruebas posteriores (ruta directa nariz, min_confidence=0, hold_then_reset) corrieron contra un source muerto.
+3. **Fixes aplicados en harmonic-weaver (working tree, sin commit):** bounds verticality (-1,1) en el manifiesto del runtime + `_emit` atrapa excepciones del callback y las cuenta en `stats.callback_errors`. Tests de regresión en `tests/test_harmocap_driver.py` (TestCallbackResilience) y `tests/test_rehearsal_harness.py` (feature ranges). Suite: 61 passed + 4 subtests. Repro offline post-fix: 0 excepciones, 52291 instrument writes.
+4. **Procesos huerfanos de S13 limpiados:** harmocap realtime (pid 897655, seguía grabando a /tmp 2h10m), weaver runtime (901237), shaper (888437). SIGTERM limpio, puertos 8765/8080 libres.
+
+Observaciones para la escena (no bugs): foco saltó entre slots 0-4 por falsos positivos de YOLO en la sala (la escena solo mira slots 0-1); tobillos fuera de cuadro a 640x480 — considerar 720p o encuadre más amplio; aggregators con slots 0/1 solamente pierden al sujeto cuando cae en slot >= 2.
+
+Pendientes sin cambios: lease recovery del engine (source absent no se recupera sin re-hello), torch cu126 en RTX 2060 (instalar cu124 o CPU), ensayo audible del shaper (A2 de la auditoría de Fable — S13 no lo cubrió porque las voces nunca dispararon).
+
+## 2026-07-18 - S14b - Triage auditoría Fable + limpieza de stack
+
+**Stack apagado:** se encontró un SuperCollider del beacon vivo (scsynth 867943 + sclang beacon.scd 868097, era lo que sonaba), más el launcher start-beacon.sh y webui.py. Todo SIGTERM limpio. Verificado: sin procesos beacon/shaper/weaver/harmocap, SuperCollider fuera de pipewire.
+
+**Fixes S14 commiteados:** harmonic-weaver `b5b5221`, pusheado y verificado en ambos remotos (nicoechaniz + AlterMundi).
+
+**Auditoría Fable ejecutada:**
+- A4: beacon-spatial ahora tiene pushurl dual (nicoechaniz + AlterMundi). Espejo `AlterMundi/beacon-spatial` creado (público). Verificado por ls-remote: main `de2768c` y sensors `6c57986` presentes en AMBOS remotos — el riesgo de pérdida de datos queda cerrado.
+- A5: digital-beacon limpio. PNGs de análisis (espectrogramas/waveforms de frogs, regenerables desde el WAV canónico en beacon-spatial) borrados; symlink roto `data/sources/2_Sesion_Minerval_extra.wav` (gitignored, apuntaba a ruta voice-analysis inexistente) eliminado. Working tree limpio; no hubo nada trackeado que commitear.
+- A1, A2, A3, B6, B7, B9, C10 + lease recovery: cards F5-* creadas en triage en board `beacon-ecosystem-orch` (t_c0ede1e0, t_db173939, t_4beb6d46, t_b92791c3, t_e299befb, t_597f9f26, t_5f850e95, t_a86ca0f8).
+
+**torch/CUDA:** downgrade a torch 2.6.0+cu124 en `.venv` (ultralytics 8.4.100 solo requiere torch>=1.8). Resultado de soaks GPU (YOLO26m-pose, track, imágenes random): 1 crash intermitente (illegal instruction, <6 min) de 3 corridas — 4 min con CUDA_LAUNCH_BLOCKING=1 PASS (4368 inf), 7 min async PASS (4466 inf). El crash NO es determinista: no es un build sin sm_75 (cu124 lo incluye y la mayoría de corridas pasa). Hipótesis revisada: driver 550.163.01 viejo o hardware marginal; no se descarta rareza bajo carga. Recomendación: correr el ensayo en vivo y observar; fallback CPU disponible; update de driver como mantenimiento separado.
+
+**Pendiente para Nico:** re-ensayo en vivo (card F5-A2) — con los fixes, las voces del shaper deberían disparar; además cubre el ensayo audible (Fable A2).
+
