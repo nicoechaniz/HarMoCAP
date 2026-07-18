@@ -160,8 +160,14 @@ def process_video(src: Path) -> dict:
                 tmp.unlink()
 
     dt = time.time() - t0
+    # trazabilidad: args EFECTIVOS de inferencia (incluye todos los defaults)
+    eff = {}
+    if getattr(model, "predictor", None) is not None:
+        eff = {k: v for k, v in vars(model.predictor.args).items()
+               if isinstance(v, (int, float, str, bool, type(None)))}
     return {"frames": frames, "persons": len(persons_seen),
-            "s": round(dt, 1), "fps_proc": round(frames / dt, 1)}
+            "s": round(dt, 1), "fps_proc": round(frames / dt, 1),
+            "effective_args": eff}
 
 
 def main() -> int:
@@ -169,11 +175,22 @@ def main() -> int:
     videos = sorted(SRC.glob("*.mp4"))
     print(f"[render] {len(videos)} videos → {DST} (4 variantes c/u)")
     print(f"[render] modelo: {CKPT.name} (ft2 ep30, CrowdPose-val 0.6261)")
+    import hashlib
+    import json
+    manifest = {"checkpoint": str(CKPT),
+                "checkpoint_sha256": hashlib.sha256(CKPT.read_bytes()).hexdigest(),
+                "videos": {}}
     for i, v in enumerate(videos, 1):
         print(f"[render] ({i}/{len(videos)}) {v.name} …", flush=True)
         stats = process_video(v)
+        manifest["videos"][v.name] = stats
+        if "effective_args" in stats and "effective_args" not in manifest:
+            manifest["effective_args"] = stats["effective_args"]
         print(f"[render]   {stats['frames']} frames, {stats['persons']} personas "
               f"trackeadas, {stats['s']}s ({stats['fps_proc']} fps proc)", flush=True)
+    (DST / "render_manifest.json").write_text(
+        json.dumps(manifest, indent=2, default=str))
+    print(f"[render] manifest → {DST / 'render_manifest.json'}")
     print("[render] COMPLETO")
     return 0
 
