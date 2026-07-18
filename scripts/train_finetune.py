@@ -51,6 +51,8 @@ def main() -> int:
         data=str(REPO / CFG["data"]), epochs=hp["epochs"], imgsz=hp["imgsz"],
         batch=hp["batch"], seed=hp["seed"], deterministic=hp["deterministic"],
         patience=hp["patience"], device="cuda:0",
+        save_period=1,      # directiva: guardar TODAS las épocas
+        verbose=True,       # directiva: métricas completas visibles en tmux
         project=str(REPO / "runs"), name=run_id, exist_ok=True)
     if hp.get("lr0"):
         kwargs["lr0"] = hp["lr0"]

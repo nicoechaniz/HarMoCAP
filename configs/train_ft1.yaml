@@ -19,6 +19,7 @@ hyperparameters:
   seed: 0
   deterministic: true
   optimizer: auto      # default documentado de Ultralytics
+  save_period: 1       # directiva 2026-07-18: checkpoint de CADA época (~50 MB × 40 = ~2 GB)
   lr0: null            # null = default del optimizador auto
   patience: 15         # early-stopping conservador
   # augmentations: defaults de pose de Ultralytics; fliplr=0.5 con flip_idx
