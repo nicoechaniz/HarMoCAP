@@ -93,36 +93,52 @@ def skeleton(t: float, *, arms_up: float = 0.0, lean: float = 0.0,
 
 
 class SyntheticRunner:
-    """Pasa keypoints sintéticos por el pipeline real (smoother+features)."""
+    """Pasa keypoints sintéticos por el pipeline real (smoother+features).
+
+    Multi-slot (contrato 1.1): un smoother+extractor POR SLOT, como el pipeline.
+    """
 
     def __init__(self, stream_id: str):
-        cfg_feat = {"velocity_ms": 120, "accel_ms": 200, "jerk_ms": 300,
-                    "aggregate_ms": 1000, "qom_ms": 400}
+        self.cfg_feat = {"velocity_ms": 120, "accel_ms": 200, "jerk_ms": 300,
+                         "aggregate_ms": 1000, "qom_ms": 400}
         fallback = {"torso_height_norm": 0.28, "vmax_hand": 3.0,
                     "vmax_center": 1.5, "jerk_ref": 40.0, "energy_ref": 4.0,
                     "accel_ref": 8.0}
         self.stream_id = stream_id
-        self.smoother = KeypointSmoother()
         self.calib = CalibrationManager(fallback, period_ms=3000)
-        self.features = FeatureExtractor(cfg_feat, self.calib)
+        self._smoothers: dict[int, KeypointSmoother] = {}
+        self._extractors: dict[int, FeatureExtractor] = {}
         self.contract_id = osc_codec.contract_id_from_manifest(
             json.loads((REPO / "schemas" / "osc_contract.v1.json").read_text()))
         self.t_us = 1_000_000            # arranque del reloj monótono sintético
         self.frame_id = 0
 
-    def frame(self, raw_kps, *, present=True, drop_conf: set[int] = frozenset()
-              ) -> dict:
+    def _slot(self, sid: int):
+        if sid not in self._smoothers:
+            self._smoothers[sid] = KeypointSmoother()
+            self._extractors[sid] = FeatureExtractor(self.cfg_feat, self.calib)
+        return self._smoothers[sid], self._extractors[sid]
+
+    def frame_multi(self, slots: dict, *, focused_slot: int = 0,
+                    tombstones: set[int] = frozenset(),
+                    drop_conf: set[int] = frozenset()) -> dict:
+        """slots: {slot_id: raw_kps}. Genera un frame multi-persona."""
         self.t_us += DT_US
         self.frame_id += 1
         persons = []
-        if present and raw_kps is not None:
+        calib_done = False
+        for sid in sorted(slots):
+            raw = slots[sid]
+            smoother, extractor = self._slot(sid)
             kps = [(x, y, 0.05 if i in drop_conf else c)
-                   for i, (x, y, c) in enumerate(raw_kps)]
-            sm = self.smoother.update(kps, self.t_us)
-            torso = self.features._torso_height(
-                [(s[0], s[1]) for s in sm], [s[3] for s in sm])
-            self.calib.observe(torso, self.t_us, self.frame_id)
-            vals, states = self.features.extract(sm, self.t_us)
+                   for i, (x, y, c) in enumerate(raw)]
+            sm = smoother.update(kps, self.t_us)
+            if not calib_done:
+                torso = extractor._torso_height(
+                    [(s[0], s[1]) for s in sm], [s[3] for s in sm])
+                self.calib.observe(torso, self.t_us, self.frame_id)
+                calib_done = True
+            vals, states = extractor.extract(sm, self.t_us)
             kd = tuple(KeypointData(x=s[0], y=s[1], conf=s[2], state=s[3],
                                     age_frames=s[4], age_us=s[5]) for s in sm)
             xs = [k.x for k in kd]; ys = [k.y for k in kd]
@@ -131,12 +147,13 @@ class SyntheticRunner:
                     (max(xs) - min(xs)) / aspect * 1.15,
                     (max(ys) - min(ys)) * 1.15)
             persons.append(PersonState(
-                slot_id=0, present=True, keypoints=kd, bbox=bbox,
+                slot_id=sid, present=True, keypoints=kd, bbox=bbox,
                 features=tuple(vals), feature_states=tuple(states),
-                provisional=self.calib.profile.state == "calibrating"))
-        elif not present:
+                provisional=self.calib.profile.state == "calibrating",
+                focused=sid == focused_slot))
+        for sid in sorted(tombstones):
             persons.append(PersonState(
-                slot_id=0, present=False, keypoints=(),
+                slot_id=sid, present=False, keypoints=(),
                 bbox=(0.0, 0.0, 0.0, 0.0), features=(0.0,) * N_FEATURES,
                 feature_states=(int(KpState.INVALID),) * N_FEATURES))
         mf = MovementFrame(
@@ -148,6 +165,14 @@ class SyntheticRunner:
         return frame_to_dict(mf, self.calib.profile,
                              contract_id=self.contract_id,
                              config_hash=CONFIG_HASH, model_id=MODEL_ID)
+
+    def frame(self, raw_kps, *, present=True, drop_conf: set[int] = frozenset()
+              ) -> dict:
+        """Compat una-persona: slot 0 focal, o tombstone del slot 0."""
+        if present and raw_kps is not None:
+            return self.frame_multi({0: raw_kps}, focused_slot=0,
+                                    drop_conf=drop_conf)
+        return self.frame_multi({}, tombstones={0})
 
 
 def write_jsonl(path: Path, frames: list[dict]) -> None:
@@ -198,6 +223,20 @@ def main() -> int:
     r2 = SyntheticRunner(STREAM_ID_2)   # proceso reiniciado: frame_id vuelve a 1
     fx += [r2.frame(skeleton(i / FPS)) for i in range(FPS * 2)]
     write_jsonl(REPO / "examples" / "fixtures" / "stream_restart.jsonl", fx)
+
+    print("[synthetic] fixture dos personas + cambio de foco (contrato 1.1)…")
+    r = SyntheticRunner(STREAM_ID)
+    fx = []
+    def two(t, focus):
+        # persona 0 a la izquierda (quieta), persona 1 a la derecha (balanceando)
+        p0 = [(x - 0.45, y, c) for x, y, c in skeleton(t)]
+        p1 = [(x + 0.45, y, c) for x, y, c in skeleton(t, sway=0.08)]
+        return r.frame_multi({0: p0, 1: p1}, focused_slot=focus)
+    for i in range(FPS * 4):            # primera mitad: foco en slot 0
+        fx.append(two(i / FPS, 0))
+    for i in range(FPS * 4):            # segunda mitad: foco en slot 1
+        fx.append(two((i + 120) / FPS, 1))
+    write_jsonl(REPO / "examples" / "fixtures" / "two_persons.jsonl", fx)
 
     print("[synthetic] OK")
     return 0

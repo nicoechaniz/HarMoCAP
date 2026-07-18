@@ -17,7 +17,7 @@ import secrets
 from dataclasses import dataclass, field
 from enum import IntEnum
 
-SCHEMA_VERSION = "1.0.0"
+SCHEMA_VERSION = "1.1.0"   # 1.1: multi-persona, bundle por persona, focused
 FEATURE_SET_VERSION = "1.0.0"
 LAYOUT_VERSION = "1"
 PRODUCER_VERSION = "0.1.0"
@@ -93,6 +93,7 @@ class PersonState:
     features: tuple[float, ...]                  # len == N_FEATURES, orden FEATURE_ORDER
     feature_states: tuple[int, ...]              # len == N_FEATURES, KpState por feature
     provisional: bool = False                    # True durante calibration_state=calibrating
+    focused: bool = False                        # marcador de foco (contrato 1.1)
 
 
 @dataclass(frozen=True)

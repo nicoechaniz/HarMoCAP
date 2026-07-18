@@ -90,10 +90,12 @@ def main() -> int:
     for pkt in replay.handshake_bytes(frames[0]):
         tx.sendto(pkt, dest)
     sizes = []
-    for seq, d in enumerate(frames[:30], 1):
-        pkt = replay.frame_to_wire(d, seq, 0)
-        sizes.append(len(pkt))
-        tx.sendto(pkt, dest)
+    seq = 0
+    for d in frames[:30]:
+        for pkt in replay.frame_to_wire(d, seq + 1, 0):   # 1 bundle por persona (1.1)
+            seq += 1
+            sizes.append(len(pkt))
+            tx.sendto(pkt, dest)
     time.sleep(0.3)
 
     check("todos los bundles <= 1200 B", max(sizes) <= 1200,

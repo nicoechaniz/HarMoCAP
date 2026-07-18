@@ -52,12 +52,13 @@ def test_nan_rejected_in_wire():
 
 
 # ---------------------------------------------------------------- OSC round-trip
-def _person_wire(slot=0):
+def _person_wire(slot=0, focused=True):
     return {
-        "slot_id": slot, "present": True,
+        "slot_id": slot, "present": True, "focused": focused,
         "keypoints_blob": osc_codec.pack_keypoints(
             [(0.5, 0.5, 0.9)] * N_KEYPOINTS),
-        "kp_state_blob": osc_codec.pack_kp_state([(0, 0, 0)] * N_KEYPOINTS),
+        "kp_state_blob": osc_codec.pack_kp_state(
+            [(0, 4_000_000, 4_000_000_000)] * N_KEYPOINTS),  # peor caso: valores grandes
         "bbox": [0.5, 0.5, 0.3, 0.8],
         "features_blob": osc_codec.pack_features([0.5] * N_FEATURES),
         "feat_state_blob": osc_codec.pack_feat_state([0] * N_FEATURES),
@@ -69,13 +70,13 @@ def _bundle(**over):
               n_persons=1, fps=30.0, contract_id="c" * 32,
               calibration_generation=2, calibration_state="frozen",
               captured_at_us=1_000_000, processed_at_us=1_010_000,
-              queued_for_send_at_us=1_012_000, persons=[_person_wire()])
+              queued_for_send_at_us=1_012_000, person=_person_wire())
     kw.update(over)
-    return osc_codec.build_frame_bundle(**kw)
+    return osc_codec.build_person_bundle(**kw)
 
 
-def test_frame_bundle_roundtrip_float32_tolerance():
-    """OscFrame ↔ OSC(bundle): canonicalizado float32 con tolerancia (finding #15)."""
+def test_person_bundle_roundtrip_float32_tolerance():
+    """OscFrame ↔ OSC(bundle por persona): float32 con tolerancia (finding #15)."""
     data = _bundle()
     msgs = dict(osc_codec.decode_bundle(data))
     meta = msgs["/harmocap/v1/meta"]
@@ -85,22 +86,40 @@ def test_frame_bundle_roundtrip_float32_tolerance():
     kps = osc_codec.unpack_keypoints(msgs["/harmocap/v1/person/0/keypoints"][0])
     assert kps[0][0] == pytest.approx(0.5, abs=1e-6)
     assert msgs["/harmocap/v1/person/0/present"] == [1]
+    assert msgs["/harmocap/v1/person/0/focused"] == [1]   # contrato 1.1
 
 
-def test_bundle_size_under_mtu():
-    """Aserción ejecutable serialized_size <= 1200 (r8 #8) — peor caso."""
-    data = _bundle()
-    assert len(data) <= osc_codec.MAX_DATAGRAM_BYTES, len(data)
+def test_bundle_size_under_mtu_worst_case_any_slot():
+    """<=1200 B por bundle de persona, peor caso, para CUALQUIER slot (1.1)."""
+    for slot in (0, 7):
+        data = _bundle(person=_person_wire(slot=slot), n_persons=8,
+                       captured_frame_id=2**40, bundle_seq=2**40)
+        assert len(data) <= osc_codec.MAX_DATAGRAM_BYTES, (slot, len(data))
+
+
+def test_focused_flag_roundtrip():
+    data = _bundle(person=_person_wire(focused=False))
+    msgs = dict(osc_codec.decode_bundle(data))
+    assert msgs["/harmocap/v1/person/0/focused"] == [0]
+
+
+def test_control_select_build_and_parse():
+    """/control/select: build+parse (contrato 1.1)."""
+    for slot in (0, 7, -1):
+        data = osc_codec.build_select(slot)
+        (addr, args), = osc_codec.decode_bundle(data)
+        assert addr == "/harmocap/v1/control/select"
+        assert args == [slot]
 
 
 def test_tombstone_bundle_form():
     """present=0 → SOLO meta + present, sin payload (r4 #11)."""
-    data = _bundle(n_persons=0,
-                   persons=[{"slot_id": 0, "present": False}])
+    data = _bundle(n_persons=0, person={"slot_id": 0, "present": False})
     msgs = osc_codec.decode_bundle(data)
     addrs = [a for a, _ in msgs]
     assert "/harmocap/v1/person/0/present" in addrs
-    assert not any("keypoints" in a or "features" in a for a in addrs)
+    assert not any("keypoints" in a or "features" in a or "focused" in a
+                   for a in addrs)
     assert len(data) <= osc_codec.MAX_DATAGRAM_BYTES
 
 

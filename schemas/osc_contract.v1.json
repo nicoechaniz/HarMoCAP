@@ -1,17 +1,23 @@
 {
   "name": "harmocap-osc-contract",
-  "contract_version": "1",
+  "contract_version": "1.1",
   "layout_version": "1",
-  "schema_version": "1.0.0",
+  "schema_version": "1.1.0",
   "feature_set_version": "1.0.0",
   "namespace": "/harmocap/v1",
   "transport": {
     "protocol": "OSC 1.0 sobre UDP",
-    "bundle": "un bundle atomico por frame, timetag immediately",
+    "bundle": "1.1: un bundle atomico y autocontenido POR PERSONA (meta + esa persona), timetag immediately; escala a 8 slots sin exceder MTU",
+    "ensamblado": "el receptor agrupa por (captured_frame_id, slot); n_persons en /meta dice cuantos bundles esperar para ese frame; la atomicidad es POR PERSONA (entre personas del mismo frame puede haber perdida independiente)",
     "max_datagram_bytes": 1200,
     "hello_rebroadcast_s": 1.0,
     "rate_hz_nominal": 30,
+    "max_slots": 8,
     "nota_consumidor": "los datos llegan a tasa de video (~30 Hz): interpolar/suavizar a tasa de audio en el receptor"
+  },
+  "focus": {
+    "descripcion": "cada bundle de persona presente lleva /person/{slot}/focused (1|0): exactamente un slot esta focal; Nico decide si mapea solo la focal o mezcla el grupo",
+    "seleccion": "automatica (mayor bbox, con histeresis) o manual via /control/select al puerto de control; si el slot focal manual muere, revierte a automatica"
   },
   "coordinate_system": {
     "descripcion": "isotropico: x_iso = x_px / frame_h ; y_iso = y_px / frame_h",
@@ -111,7 +117,13 @@
       "typetags": "shhifsish hh h",
       "args": ["stream_id", "captured_frame_id(h)", "bundle_seq(h)", "n_persons", "fps", "contract_id", "calibration_generation", "calibration_state", "captured_at_us(h)", "processed_at_us(h)", "queued_for_send_at_us(h)"]
     },
+    "/harmocap/v1/control/select": {
+      "typetags": "i",
+      "args": ["slot 0..7, o -1 = volver a seleccion automatica"],
+      "nota": "al puerto de control del emisor; cambia que slot lleva focused=1"
+    },
     "/harmocap/v1/person/{slot}/present": {"typetags": "i", "args": ["1|0"]},
+    "/harmocap/v1/person/{slot}/focused": {"typetags": "i", "args": ["1|0"], "solo_si": "present=1"},
     "/harmocap/v1/person/{slot}/keypoints": {"typetags": "b", "args": ["blob keypoints"], "solo_si": "present=1"},
     "/harmocap/v1/person/{slot}/kp_state": {"typetags": "b", "args": ["blob kp_state"], "solo_si": "present=1"},
     "/harmocap/v1/person/{slot}/bbox": {"typetags": "ffff", "args": ["xc", "yc", "w", "h (normalizados xywhn)"], "solo_si": "present=1"},

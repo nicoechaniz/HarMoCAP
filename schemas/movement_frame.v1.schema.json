@@ -61,7 +61,8 @@
           "bbox_xywhn": {"type": "array", "items": {"type": "number"}, "minItems": 4, "maxItems": 4},
           "features": {"type": "array", "minItems": 21, "maxItems": 21, "items": {"type": ["number", "null"]}},
           "feat_state": {"type": "array", "minItems": 21, "maxItems": 21, "items": {"type": "integer", "minimum": 0, "maximum": 2}},
-          "provisional": {"type": "boolean"}
+          "provisional": {"type": "boolean"},
+          "focused": {"type": "boolean"}
         },
         "if": {"properties": {"present": {"const": true}}},
         "then": {"required": ["keypoints", "kp_state", "bbox_xywhn", "features", "feat_state"]}

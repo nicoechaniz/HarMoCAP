@@ -120,6 +120,8 @@ class ContractReceiver:
             p = persons.setdefault(slot, {})
             if field == "present":
                 p["present"] = bool(args[0])
+            elif field == "focused":
+                p["focused"] = bool(args[0])   # contrato 1.1: marcador de foco
             elif field == "keypoints":
                 p["keypoints"] = osc_codec.unpack_keypoints(args[0])
             elif field == "kp_state":
@@ -156,7 +158,8 @@ class ContractReceiver:
             f"{osc_codec_feature_name(i)}={v:.2f}" if s != 2 else
             f"{osc_codec_feature_name(i)}=--"
             for i, (v, s) in enumerate(zip(feats, fstates)) if i in (0, 2, 9))
-        print(f"[slot {slot}] frame={meta[1]} seq={meta[2]} {shown}")
+        star = "★" if p.get("focused") else " "
+        print(f"[slot {slot}]{star} frame={meta[1]} seq={meta[2]} {shown}")
 
     def on_absent(self, slot: int) -> None:
         if not self.quiet:

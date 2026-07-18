@@ -17,7 +17,7 @@ import yaml
 
 from harmocap.capture import LatchingCamera, mono_us
 from harmocap.features import CalibrationManager, FeatureExtractor
-from harmocap.identity import PrincipalSlot
+from harmocap.identity import SlotManager
 from harmocap.interface import osc_codec
 from harmocap.interface.osc_emitter import OscEmitter
 from harmocap.interface.recorder import Recorder, frame_to_dict
@@ -67,20 +67,19 @@ class HarmocapPipeline:
             tracker=self.cfg_model["tracker"]["name"])
 
         self.camera = LatchingCamera(source)
-        oe = self.cfg_smooth["one_euro"]; ks = self.cfg_smooth["keypoint_state"]
-        self.smoother = KeypointSmoother(
-            mincutoff=oe["mincutoff"], beta=oe["beta"], dcutoff=oe["dcutoff"],
-            conf_threshold=ks["conf_threshold"],
-            held_timeout_ms=ks["held_timeout_ms"],
-            conf_decay_per_s=ks["conf_decay_per_s"])
-        self.slot = PrincipalSlot(
+        self._oe = self.cfg_smooth["one_euro"]
+        self._ks = self.cfg_smooth["keypoint_state"]
+        self.slots = SlotManager(
+            max_slots=self.cfg_ident.get("max_slots", 8),
             occlusion_grace_ms=self.cfg_ident["occlusion_grace_ms"],
             release_timeout_ms=self.cfg_ident["release_timeout_ms"],
             acquire_rule=self.cfg_ident["acquire_rule"],
             tombstone_repeat_frames=self.cfg_ident["tombstone_repeat_frames"])
         self.calib = CalibrationManager(self.cfg_feat["calibration"]["fallback"],
                                         period_ms=self.cfg_feat["calibration"]["period_ms"])
-        self.features = FeatureExtractor(self.cfg_feat["windows"], self.calib)
+        # instancias POR SLOT (contrato 1.1): se crean/resetean con slot_reset
+        self._smoothers: dict[int, KeypointSmoother] = {}
+        self._features: dict[int, FeatureExtractor] = {}
 
         dests = osc_destinations or [(d["host"], d["port"])
                                      for d in self.cfg_osc["destinations"]]
@@ -92,7 +91,8 @@ class HarmocapPipeline:
             stream_id=self.stream_id,
             frame_w=prof["width"], frame_h=prof["height"],
             hello_rebroadcast_s=self.cfg_osc["hello_rebroadcast_s"],
-            control_port=self.cfg_osc.get("control_port"))
+            control_port=self.cfg_osc.get("control_port"),
+            on_select=self.slots.select_focus)   # /control/select → foco
         self._publish_calibration()
 
         self.recorder = Recorder(record_to) if record_to else None
@@ -109,7 +109,24 @@ class HarmocapPipeline:
             generation=p.generation, state=p.state,
             effective_from_frame_id=p.effective_from_frame_id, params_blob=blob)
 
-    # -- un paso del loop ------------------------------------------------------
+    # -- instancias por slot ---------------------------------------------------
+    def _slot_state(self, slot_id: int, reset: bool
+                    ) -> tuple[KeypointSmoother, FeatureExtractor]:
+        if slot_id not in self._smoothers:
+            self._smoothers[slot_id] = KeypointSmoother(
+                mincutoff=self._oe["mincutoff"], beta=self._oe["beta"],
+                dcutoff=self._oe["dcutoff"],
+                conf_threshold=self._ks["conf_threshold"],
+                held_timeout_ms=self._ks["held_timeout_ms"],
+                conf_decay_per_s=self._ks["conf_decay_per_s"])
+            self._features[slot_id] = FeatureExtractor(
+                self.cfg_feat["windows"], self.calib)
+        elif reset:
+            self._smoothers[slot_id].reset()
+            self._features[slot_id].reset()
+        return self._smoothers[slot_id], self._features[slot_id]
+
+    # -- un paso del loop (multi-slot, contrato 1.1) ---------------------------
     def step(self) -> bool:
         got = self.camera.get_latest()
         if got is None:
@@ -118,46 +135,53 @@ class HarmocapPipeline:
         self.metrics["frames"] += 1
 
         dets, speed, (w, h) = self.backend.track_frame(frame_img)
-        det, emit_tombstone, slot_reset = self.slot.update(dets, captured_at_us)
-        if slot_reset:
-            self.smoother.reset()
-            self.features.reset()
+        events = self.slots.update(dets, captured_at_us)
+        focused = self.slots.focused_slot
 
         persons: list[PersonState] = []
         persons_wire: list[dict] = []
-        if det is not None:
-            smoothed = self.smoother.update(det.keypoints_iso, captured_at_us)
-            torso = self.features._torso_height(
-                [(s[0], s[1]) for s in smoothed], [s[3] for s in smoothed])
-            froze = self.calib.observe(torso, captured_at_us, captured_frame_id)
-            if froze:
-                self._publish_calibration()   # generación nueva al congelar (r7 #4)
-            vals, states = self.features.extract(smoothed, captured_at_us)
-            kd = tuple(KeypointData(x=s[0], y=s[1], conf=s[2], state=s[3],
-                                    age_frames=s[4], age_us=s[5]) for s in smoothed)
-            p = PersonState(
-                slot_id=self.slot.SLOT_ID, present=True, keypoints=kd,
-                bbox=det.bbox_xywhn, features=tuple(vals),
-                feature_states=tuple(states),
-                provisional=self.calib.profile.state == "calibrating")
-            persons.append(p)
-            persons_wire.append({
-                "slot_id": p.slot_id, "present": True,
-                "keypoints_blob": osc_codec.pack_keypoints(
-                    [(k.x, k.y, k.conf) for k in kd]),
-                "kp_state_blob": osc_codec.pack_kp_state(
-                    [(k.state, k.age_frames, k.age_us) for k in kd]),
-                "bbox": list(p.bbox),
-                "features_blob": osc_codec.pack_features(list(vals)),
-                "feat_state_blob": osc_codec.pack_feat_state(list(states)),
-            })
-        elif emit_tombstone:
-            persons.append(PersonState(
-                slot_id=self.slot.SLOT_ID, present=False,
-                keypoints=(), bbox=(0.0, 0.0, 0.0, 0.0),
-                features=(0.0,) * N_FEATURES,
-                feature_states=(int(KpState.INVALID),) * N_FEATURES))
-            persons_wire.append({"slot_id": self.slot.SLOT_ID, "present": False})
+        calib_observed = False
+        for ev in events:
+            if ev.detection is not None:
+                smoother, features = self._slot_state(ev.slot_id, ev.slot_reset)
+                smoothed = smoother.update(ev.detection.keypoints_iso,
+                                           captured_at_us)
+                if not calib_observed:     # calibración global: primer slot presente
+                    torso = features._torso_height(
+                        [(s[0], s[1]) for s in smoothed],
+                        [s[3] for s in smoothed])
+                    if self.calib.observe(torso, captured_at_us, captured_frame_id):
+                        self._publish_calibration()   # generación nueva (r7 #4)
+                    calib_observed = True
+                vals, states = features.extract(smoothed, captured_at_us)
+                kd = tuple(KeypointData(x=s[0], y=s[1], conf=s[2], state=s[3],
+                                        age_frames=s[4], age_us=s[5])
+                           for s in smoothed)
+                is_focused = ev.slot_id == focused
+                p = PersonState(
+                    slot_id=ev.slot_id, present=True, keypoints=kd,
+                    bbox=ev.detection.bbox_xywhn, features=tuple(vals),
+                    feature_states=tuple(states),
+                    provisional=self.calib.profile.state == "calibrating",
+                    focused=is_focused)
+                persons.append(p)
+                persons_wire.append({
+                    "slot_id": p.slot_id, "present": True, "focused": is_focused,
+                    "keypoints_blob": osc_codec.pack_keypoints(
+                        [(k.x, k.y, k.conf) for k in kd]),
+                    "kp_state_blob": osc_codec.pack_kp_state(
+                        [(k.state, k.age_frames, k.age_us) for k in kd]),
+                    "bbox": list(p.bbox),
+                    "features_blob": osc_codec.pack_features(list(vals)),
+                    "feat_state_blob": osc_codec.pack_feat_state(list(states)),
+                })
+            elif ev.emit_tombstone:
+                persons.append(PersonState(
+                    slot_id=ev.slot_id, present=False,
+                    keypoints=(), bbox=(0.0, 0.0, 0.0, 0.0),
+                    features=(0.0,) * N_FEATURES,
+                    feature_states=(int(KpState.INVALID),) * N_FEATURES))
+                persons_wire.append({"slot_id": ev.slot_id, "present": False})
 
         processed_at_us = mono_us()
         mf = MovementFrame(
@@ -167,20 +191,25 @@ class HarmocapPipeline:
             calibration_generation=self.calib.profile.generation,
             calibration_state=self.calib.profile.state, persons=tuple(persons))
 
-        env = self.emitter.emit(mf, persons_wire)
-        self.metrics["emitted"] += 1
-        self.metrics["lat_sw_ms"].append((env.sent_at_us - captured_at_us) / 1e3)
-        if self._prev_sent_us is not None and self._prev_cap_us is not None:
-            jitter = abs((env.sent_at_us - self._prev_sent_us)
-                         - (captured_at_us - self._prev_cap_us)) / 1e3
-            self.metrics["jitter_ms"].append(jitter)   # |Δsent−Δcaptured| (r5 #8)
-        self._prev_sent_us, self._prev_cap_us = env.sent_at_us, captured_at_us
+        envs = self.emitter.emit(mf, persons_wire)
+        if envs:
+            last = envs[-1]
+            self.metrics["emitted"] += len(envs)
+            self.metrics["lat_sw_ms"].append((last.sent_at_us - captured_at_us) / 1e3)
+            if self._prev_sent_us is not None and self._prev_cap_us is not None:
+                jitter = abs((last.sent_at_us - self._prev_sent_us)
+                             - (captured_at_us - self._prev_cap_us)) / 1e3
+                self.metrics["jitter_ms"].append(jitter)   # |Δsent−Δcaptured|
+            self._prev_sent_us, self._prev_cap_us = last.sent_at_us, captured_at_us
 
         if self.recorder:
             self.recorder.put(frame_to_dict(
                 mf, self.calib.profile, contract_id=self.contract_id,
                 config_hash=self.config_hash,
                 model_id=Path(self.backend.loaded_checkpoint).name))
+        # frame para el overlay opcional (run_realtime --show)
+        self.last_frame_img = frame_img
+        self.last_persons = persons
         return True
 
     # -- reporte GO/NO-GO ------------------------------------------------------
@@ -196,6 +225,8 @@ class HarmocapPipeline:
             "jitter_ms": _percentiles(self.metrics["jitter_ms"]),
             "stream_id": self.stream_id,
             "contract_id": self.contract_id,
+            "focused_slot": self.slots.focused_slot,
+            "focus_mode": self.slots.focus_mode,
         }
 
     def close(self) -> None:

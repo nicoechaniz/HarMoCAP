@@ -79,3 +79,15 @@ Entregado (M0-M5, verificado):
 Verificacion: 36/36 tests pasan (suavizado, identidad, invarianzas de features, golden vectors del wire, round-trips, tamanios, interop python-osc, aislamiento del kit). E2E real: video 300 frames -> engine TensorRT -> tracking -> features -> OSC UDP -> receptor del kit (Python del sistema, aislado): 290/290 bundles recibidos, 0 perdidos, 0 gateados. Metricas (fuente archivo, SIN latencia fisica de camara — no hay camara en este equipo): latencia software p50 6.7 ms / p95 7.4 / p99 9.9; jitter p50 0.2 / p99 5.4 ms — bajo los umbrales candidatos (40/60/90 y 15 ms). Artefactos en `reports/20260717_e71e14a/realtime_metrics.json`.
 
 Pendiente (decisiones GO/NO-GO del usuario): firma de umbrales de aceptacion antes de la corrida con camara fisica real (medicion motion-to-wire con estimulo fisico); evaluacion INT8 (solo si hiciera falta); entrega del kit a Nico.
+
+## 2026-07-17 - S5 - Hito 2: multi-persona con seleccion de foco (contrato 1.1)
+
+Implementado el hito 2 (plan aprobado por el usuario; decisiones registradas: maximo 8 personas simultaneas; seleccion de foco por comando OSC Y teclado local; se emiten TODAS las personas con marcador `focused`).
+
+Cambio central del contrato (1.0 -> 1.1): **un bundle OSC atomico POR PERSONA** (antes por frame) — un bundle con 2+ personas excedia el presupuesto MTU de 1200 B; con la nueva granularidad cada datagrama queda ~1 KB independiente de N y escala a 8 slots. La atomicidad pasa a ser por-persona; el receptor ensambla por (captured_frame_id, slot) con n_persons como guia. Nuevos elementos: `/person/{slot}/focused` (1|0) y `/harmocap/v1/control/select` (int: 0-7 pinea, -1 auto) al puerto de control. `contract_id` nuevo (`82c51ab2...`): un kit 1.0 gatea el stream 1.1 a proposito.
+
+Implementacion: `SlotManager` (generaliza el slot principal: asignacion lowest-free, histeresis por slot, tombstones por slot, foco auto-con-histeresis/manual con reversion al morir el focal); pipeline con smoother+extractor POR SLOT; emisor con callback de seleccion; `run_realtime --show` (overlay cv2 con esqueletos, teclas 1-8/0/a/q); replay y kit actualizados; fixture sintetico `two_persons.jsonl` con cambio de foco a mitad de sesion; INTERFACE_SPEC 1.1.
+
+Verificacion: 43/43 tests (SlotManager: asignacion/histeresis/tombstones/foco/compat max_slots=1; wire: bundle por persona <=1200 B peor caso, focused, control/select, golden nuevo; kit: aislamiento con Python del sistema). E2E real: video de 30 s con ~4-7 personas -> engine TensorRT -> 2879 bundles multi-persona; foco automatico en slot 0, `/control/select 2` enviado por UDP en vivo -> foco migro al slot 2 (modo manual) verificado en el wire y en el reporte del pipeline. Latencia software con multi-persona: p50 6.9 ms (sin degradacion vs una persona).
+
+Nota operativa: si el kit 1.0 ya fue entregado a Nico, debe reemplazarse por el regenerado (el cambio de contract_id es deliberado).

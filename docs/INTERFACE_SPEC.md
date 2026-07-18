@@ -1,18 +1,42 @@
-# INTERFACE_SPEC — Contrato HarMoCAP → Nico (v1)
+# INTERFACE_SPEC — Contrato HarMoCAP → Nico (v1.1)
 
 > **Este es el documento que define cómo HarMoCAP entrega los datos de movimiento
 > corporal.** La fuente de verdad machine-readable es `osc_contract.v1.json`
 > (mismo directorio); este documento la explica. Si algo difiere, manda el JSON.
-> Versión del contrato: `schema 1.0.0 · feature_set 1.0.0 · layout 1`.
+> Versión del contrato: `contract 1.1 · schema 1.1.0 · feature_set 1.0.0 · layout 1`.
+> **Cambio 1.0→1.1:** multi-persona — un bundle POR PERSONA (antes por frame),
+> marcador `focused` y comando `/control/select`. El `contract_id` cambió: un
+> kit 1.0 gatea (ignora) un stream 1.1 a propósito — actualizá el kit completo.
 
 ## Qué recibís
 
 Un stream **OSC 1.0 sobre UDP** que describe, ~30 veces por segundo, el estado
-corporal de una persona trackeada por cámara: **17 keypoints** (esqueleto COCO)
-y **21 variables de movimiento** ya normalizadas y listas para mapear a sonido.
-Además, cada sesión puede entregarse **grabada** como archivo `.jsonl` (una
-línea JSON por frame) que el `replay.py` del kit reproduce por OSC con el
-timing original — así desarrollás tu mapeo sin cámara ni GPU.
+corporal de **hasta 8 personas** trackeadas por cámara: por cada una, **17
+keypoints** (esqueleto COCO) y **21 variables de movimiento** normalizadas y
+listas para mapear a sonido. Además, cada sesión puede entregarse **grabada**
+como archivo `.jsonl` (una línea JSON por frame) que el `replay.py` del kit
+reproduce por OSC con el timing original — así desarrollás tu mapeo sin cámara
+ni GPU.
+
+## Multi-persona y foco (contrato 1.1)
+
+- **Un bundle por persona**: cada datagrama es un bundle atómico con el `/meta`
+  del frame + los datos de UNA persona (`/person/{slot}/...`). Para saber
+  cuántas personas tiene un frame: `n_persons` en `/meta`; agrupá por
+  `(captured_frame_id, slot)`. La atomicidad es **por persona** — los datos de
+  una persona nunca llegan rasgados; entre personas del mismo frame la pérdida
+  UDP es independiente.
+- **Slots estables 0–7**: cada persona conserva su slot mientras esté en escena
+  (con tolerancia a oclusión); si se va, su slot emite tombstones y queda libre.
+- **`focused`**: exactamente un slot presente lleva `/person/{slot}/focused 1`.
+  Es la persona "protagonista": la elegida a mano, o automáticamente la de
+  mayor tamaño en cámara. Vos decidís qué hacer: mapear solo la focal, mezclar
+  el grupo, o cruzar (ej. la focal maneja la melodía y el `qom` grupal la
+  densidad).
+- **Elegir el foco vos mismo**: mandá al **puerto de control** del emisor
+  (default 9001) el mensaje `/harmocap/v1/control/select` con un int:
+  `0..7` = pinear ese slot · `-1` = volver a selección automática. Si el slot
+  pineado desaparece de escena, el foco revierte solo a automático.
 
 **Nota clave:** los datos llegan a tasa de video (~30 Hz), muy por debajo de la
 tasa de audio. **Interpolá/suavizá en tu motor de sonido** para que la

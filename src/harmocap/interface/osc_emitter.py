@@ -25,7 +25,11 @@ class OscEmitter:
     def __init__(self, *, destinations: list[tuple[str, int]], contract_id: str,
                  config_hash: str, model_id: str, stream_id: str,
                  frame_w: int, frame_h: int,
-                 hello_rebroadcast_s: float = 1.0, control_port: int | None = None):
+                 hello_rebroadcast_s: float = 1.0, control_port: int | None = None,
+                 on_select=None):
+        # on_select(slot:int) — callback de /control/select (contrato 1.1);
+        # slot=-1 significa volver a modo auto
+        self.on_select = on_select
         self.destinations = destinations
         self.contract_id = contract_id
         self.config_hash = config_hash
@@ -83,32 +87,37 @@ class OscEmitter:
             self._send(cal)
         self._last_hello_us = mono_us()
 
-    # -- emisión por frame -----------------------------------------------------
-    def emit(self, frame: MovementFrame, persons_wire: list[dict]) -> TransportEnvelope:
-        """persons_wire: dicts listos para osc_codec.build_frame_bundle."""
+    # -- emisión por frame (contrato 1.1: un bundle POR PERSONA) ---------------
+    def emit(self, frame: MovementFrame, persons_wire: list[dict]
+             ) -> list[TransportEnvelope]:
+        """Emite un bundle atómico por cada persona/tombstone del frame."""
         now = mono_us()
         if now - self._last_hello_us > self.hello_rebroadcast_us:
             self._broadcast_handshake()   # rebroadcast periódico (r5 #2)
-        self._seq += 1
-        env = TransportEnvelope(bundle_seq=self._seq, queued_for_send_at_us=now)
-        bundle = osc_codec.build_frame_bundle(
-            stream_id=frame.stream_id,
-            captured_frame_id=frame.captured_frame_id, bundle_seq=self._seq,
-            n_persons=frame.n_persons, fps=frame.fps,
-            contract_id=self.contract_id,
-            calibration_generation=frame.calibration_generation,
-            calibration_state=frame.calibration_state,
-            captured_at_us=frame.captured_at_us,
-            processed_at_us=frame.processed_at_us,
-            queued_for_send_at_us=env.queued_for_send_at_us,
-            persons=persons_wire)
-        self._send(bundle)
-        env.sent_at_us = mono_us()
-        env.wire_bytes = len(bundle)
-        self.envelopes.append(env)
+        envs: list[TransportEnvelope] = []
+        for pw in persons_wire:
+            self._seq += 1
+            env = TransportEnvelope(bundle_seq=self._seq,
+                                    queued_for_send_at_us=mono_us())
+            bundle = osc_codec.build_person_bundle(
+                stream_id=frame.stream_id,
+                captured_frame_id=frame.captured_frame_id, bundle_seq=self._seq,
+                n_persons=frame.n_persons, fps=frame.fps,
+                contract_id=self.contract_id,
+                calibration_generation=frame.calibration_generation,
+                calibration_state=frame.calibration_state,
+                captured_at_us=frame.captured_at_us,
+                processed_at_us=frame.processed_at_us,
+                queued_for_send_at_us=env.queued_for_send_at_us,
+                person=pw)
+            self._send(bundle)
+            env.sent_at_us = mono_us()
+            env.wire_bytes = len(bundle)
+            envs.append(env)
+        self.envelopes.extend(envs)
         if len(self.envelopes) > 10_000:          # acotar telemetría en memoria
             del self.envelopes[:5_000]
-        return env
+        return envs
 
     def _send(self, data: bytes) -> None:
         for host, port in self.destinations:
@@ -130,9 +139,12 @@ class OscEmitter:
                 except OSError:
                     break
                 try:
-                    for addr, _args in osc_codec.decode_bundle(data):
+                    for addr, args in osc_codec.decode_bundle(data):
                         if addr == f"{osc_codec.OSC_NAMESPACE}/hello/request":
                             self._broadcast_handshake()  # a destinos configurados
+                        elif addr == f"{osc_codec.OSC_NAMESPACE}/control/select" \
+                                and self.on_select is not None and args:
+                            self.on_select(int(args[0]))  # contrato 1.1
                 except Exception:
                     continue
             srv.close()

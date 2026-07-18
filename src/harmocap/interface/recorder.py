@@ -59,6 +59,7 @@ def frame_to_dict(frame: MovementFrame, calib: CalibrationProfile | None,
                 "features": list(p.features),
                 "feat_state": list(p.feature_states),
                 "provisional": p.provisional,
+                "focused": p.focused,
             })
         d["persons"].append(pd)
     return d

@@ -2,6 +2,7 @@
 # El slot estable está separado del track_id efímero de ByteTrack.
 
 slot:
+  max_slots: 8                # personas simultáneas (contrato 1.1; decisión del usuario)
   # El incumbente retiene el slot mientras su track sea válido; se libera SOLO tras timeout.
   occlusion_grace_ms: 1500    # tolerancia de oclusión antes de considerar perdido al incumbente
   release_timeout_ms: 3000    # tras esto el slot se libera y puede reacquirir

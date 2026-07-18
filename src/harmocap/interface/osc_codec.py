@@ -263,26 +263,30 @@ def build_calibration(*, stream_id: str, generation: int, calib_hash: str,
     return encode_bundle([msg])
 
 
-def build_frame_bundle(*, stream_id: str, captured_frame_id: int, bundle_seq: int,
-                       n_persons: int, fps: float, contract_id: str,
-                       calibration_generation: int, calibration_state: str,
-                       captured_at_us: int, processed_at_us: int,
-                       queued_for_send_at_us: int,
-                       persons: list[dict]) -> bytes:
-    """Bundle atómico por frame. persons: [{slot_id, present, keypoints_blob,
-    kp_state_blob, bbox(4 floats), features_blob, feat_state_blob}].
-    Tombstone (present=0): SOLO el mensaje present (r4 #11)."""
+def build_person_bundle(*, stream_id: str, captured_frame_id: int, bundle_seq: int,
+                        n_persons: int, fps: float, contract_id: str,
+                        calibration_generation: int, calibration_state: str,
+                        captured_at_us: int, processed_at_us: int,
+                        queued_for_send_at_us: int,
+                        person: dict) -> bytes:
+    """Contrato 1.1: UN bundle atómico y autocontenido POR PERSONA (escala a
+    8 slots sin exceder MTU). person: {slot_id, present, focused,
+    keypoints_blob, kp_state_blob, bbox(4 floats), features_blob,
+    feat_state_blob}. Tombstone (present=0): SOLO present (r4 #11).
+    El receptor ensambla el frame por (captured_frame_id, slot); n_persons
+    en /meta dice cuántos bundles esperar para ese frame."""
     msgs = [encode_message(f"{OSC_NAMESPACE}/meta", [
         stream_id, ("h", captured_frame_id), ("h", bundle_seq), n_persons,
         float(fps), contract_id, calibration_generation, calibration_state,
         ("h", captured_at_us), ("h", processed_at_us), ("h", queued_for_send_at_us),
     ])]
-    for p in persons:
-        base = f"{OSC_NAMESPACE}/person/{p['slot_id']}"
-        if not p["present"]:
-            msgs.append(encode_message(f"{base}/present", [0]))
-            continue
+    p = person
+    base = f"{OSC_NAMESPACE}/person/{p['slot_id']}"
+    if not p["present"]:
+        msgs.append(encode_message(f"{base}/present", [0]))
+    else:
         msgs.append(encode_message(f"{base}/present", [1]))
+        msgs.append(encode_message(f"{base}/focused", [1 if p.get("focused") else 0]))
         msgs.append(encode_message(f"{base}/keypoints", [p["keypoints_blob"]]))
         msgs.append(encode_message(f"{base}/kp_state", [p["kp_state_blob"]]))
         msgs.append(encode_message(f"{base}/bbox", [float(v) for v in p["bbox"]]))
@@ -291,5 +295,10 @@ def build_frame_bundle(*, stream_id: str, captured_frame_id: int, bundle_seq: in
     bundle = encode_bundle(msgs)
     if len(bundle) > MAX_DATAGRAM_BYTES:
         raise ValueError(
-            f"bundle {len(bundle)} B > {MAX_DATAGRAM_BYTES} B (r8 #8): revisar K/persons")
+            f"bundle {len(bundle)} B > {MAX_DATAGRAM_BYTES} B (r8 #8): revisar K")
     return bundle
+
+
+def build_select(slot: int) -> bytes:
+    """Comando de selección de foco (al puerto de control): slot 0..7, -1=auto."""
+    return encode_bundle([encode_message(f"{OSC_NAMESPACE}/control/select", [int(slot)])])

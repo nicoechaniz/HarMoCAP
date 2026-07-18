@@ -45,31 +45,37 @@ def load_session(path: Path) -> list[dict]:
     return frames
 
 
-def frame_to_wire(d: dict, bundle_seq: int, queued_us: int) -> bytes:
-    persons_wire = []
+def frame_to_wire(d: dict, first_seq: int, queued_us: int) -> list[bytes]:
+    """Contrato 1.1: devuelve UN bundle POR PERSONA del frame (lista)."""
+    bundles: list[bytes] = []
+    seq = first_seq
     for p in d.get("persons", []):
         if not p.get("present"):
-            persons_wire.append({"slot_id": p["slot_id"], "present": False})
-            continue
-        kps = [(k[0], k[1], k[2]) for k in p["keypoints"]]
-        kst = [(s[0], s[1], s[2]) for s in p["kp_state"]]
-        persons_wire.append({
-            "slot_id": p["slot_id"], "present": True,
-            "keypoints_blob": osc_codec.pack_keypoints(kps),
-            "kp_state_blob": osc_codec.pack_kp_state(kst),
-            "bbox": p["bbox_xywhn"],
-            "features_blob": osc_codec.pack_features(
-                [0.0 if v is None else v for v in p["features"]]),
-            "feat_state_blob": osc_codec.pack_feat_state(p["feat_state"]),
-        })
-    return osc_codec.build_frame_bundle(
-        stream_id=d["stream_id"],
-        captured_frame_id=d["captured_frame_id"], bundle_seq=bundle_seq,
-        n_persons=d["n_persons"], fps=d["fps"], contract_id=d["contract_id"],
-        calibration_generation=d["calibration_generation"],
-        calibration_state=d["calibration_state"],
-        captured_at_us=d["captured_at_us"], processed_at_us=d["processed_at_us"],
-        queued_for_send_at_us=queued_us, persons=persons_wire)
+            pw = {"slot_id": p["slot_id"], "present": False}
+        else:
+            kps = [(k[0], k[1], k[2]) for k in p["keypoints"]]
+            kst = [(s[0], s[1], s[2]) for s in p["kp_state"]]
+            pw = {
+                "slot_id": p["slot_id"], "present": True,
+                "focused": bool(p.get("focused")),
+                "keypoints_blob": osc_codec.pack_keypoints(kps),
+                "kp_state_blob": osc_codec.pack_kp_state(kst),
+                "bbox": p["bbox_xywhn"],
+                "features_blob": osc_codec.pack_features(
+                    [0.0 if v is None else v for v in p["features"]]),
+                "feat_state_blob": osc_codec.pack_feat_state(p["feat_state"]),
+            }
+        bundles.append(osc_codec.build_person_bundle(
+            stream_id=d["stream_id"],
+            captured_frame_id=d["captured_frame_id"], bundle_seq=seq,
+            n_persons=d["n_persons"], fps=d["fps"], contract_id=d["contract_id"],
+            calibration_generation=d["calibration_generation"],
+            calibration_state=d["calibration_state"],
+            captured_at_us=d["captured_at_us"],
+            processed_at_us=d["processed_at_us"],
+            queued_for_send_at_us=queued_us, person=pw))
+        seq += 1
+    return bundles
 
 
 def handshake_bytes(d: dict) -> list[bytes]:
@@ -133,8 +139,9 @@ def main() -> int:
                 if 0.0 < gap:
                     time.sleep(min(gap, args.max_gap_s))
             prev_cap_us = d["captured_at_us"]
-            seq += 1
-            sock.sendto(frame_to_wire(d, seq, time.monotonic_ns() // 1000), dest)
+            for pkt in frame_to_wire(d, seq + 1, time.monotonic_ns() // 1000):
+                seq += 1
+                sock.sendto(pkt, dest)
         if not args.loop:
             break
     print(f"[replay] fin — {seq} bundles emitidos")
