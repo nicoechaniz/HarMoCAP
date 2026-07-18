@@ -1,41 +1,41 @@
 {
   "backend": {
-    "loaded_checkpoint": "/mnt/m2-1TB/HarMoCAP/outputs/yolo26m-pose.engine",
-    "is_engine": true,
+    "loaded_checkpoint": "yolo26m-pose.pt",
+    "is_engine": false,
     "imgsz": 640,
     "conf": 0.25,
     "max_det": 8,
     "tracker": "bytetrack.yaml"
   },
   "capture_profile": {
-    "source": "outputs/test_video.mp4",
-    "backend": "FFMPEG",
-    "width": 810,
-    "height": 1080,
+    "source": "2",
+    "backend": "V4L2",
+    "width": 640,
+    "height": 480,
     "fps": 30.0,
     "buffersize_req": 1,
-    "fourcc": 877677894
+    "fourcc": 1448695129
   },
-  "capture_dropped": 10,
-  "recorder_dropped": null,
-  "frames": 799,
-  "emitted": 2879,
+  "capture_dropped": 27,
+  "recorder_dropped": 0,
+  "frames": 42,
+  "emitted": 39,
   "lat_sw_ms": {
-    "p50": 6.949,
-    "p95": 7.635,
-    "p99": 8.102,
-    "mean": 6.9963291666666665,
-    "n": 720
+    "p50": 31.665,
+    "p95": 33.443,
+    "p99": 34.161,
+    "mean": 31.850589743589744,
+    "n": 39
   },
   "jitter_ms": {
-    "p50": 0.26,
-    "p95": 0.795,
+    "p50": 0.097,
+    "p95": 1.394,
     "p99": 1.64,
-    "mean": 0.31596805555555557,
-    "n": 720
+    "mean": 0.2522894736842105,
+    "n": 38
   },
-  "stream_id": "0f31b37fc82aae22",
+  "stream_id": "557964d7efa62b0b",
   "contract_id": "82c51ab25ce36876c982a6afb19e5cf7",
-  "focused_slot": 2,
-  "focus_mode": "manual"
+  "focused_slot": 0,
+  "focus_mode": "auto"
 }
