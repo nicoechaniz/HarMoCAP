@@ -1,0 +1,11 @@
+# Dataset mixto H3: CrowdPose(train, convertido a COCO-17) + subset COCO-pose
+# Generado por scripts/convert_crowdpose.py — manifest en data/crowdpose_yolo/manifest.json
+path: /mnt/m2-1TB/HarMoCAP/data
+train:
+  - crowdpose_yolo/images/train
+  - coco_subset_train.txt
+val: crowdpose_yolo/images/val    # eval principal (oclusión); COCO val se evalúa aparte
+kpt_shape: [17, 3]
+flip_idx: [0, 2, 1, 4, 3, 6, 5, 8, 7, 10, 9, 12, 11, 14, 13, 16, 15]
+names:
+  0: person

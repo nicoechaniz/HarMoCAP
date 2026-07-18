@@ -17,23 +17,25 @@
     "fourcc": 877677894
   },
   "capture_dropped": 10,
-  "recorder_dropped": 0,
-  "frames": 290,
-  "emitted": 290,
+  "recorder_dropped": null,
+  "frames": 799,
+  "emitted": 2879,
   "lat_sw_ms": {
-    "p50": 6.655,
-    "p95": 7.439,
-    "p99": 9.874,
-    "mean": 6.773682464454977,
-    "n": 211
+    "p50": 6.949,
+    "p95": 7.635,
+    "p99": 8.102,
+    "mean": 6.9963291666666665,
+    "n": 720
   },
   "jitter_ms": {
-    "p50": 0.198,
-    "p95": 0.975,
-    "p99": 5.437,
-    "mean": 0.3919763033175355,
-    "n": 211
+    "p50": 0.26,
+    "p95": 0.795,
+    "p99": 1.64,
+    "mean": 0.31596805555555557,
+    "n": 720
   },
-  "stream_id": "16cb3d8b3a03d01a",
-  "contract_id": "ce85a6deb275d9dce09259a8a975de20"
+  "stream_id": "0f31b37fc82aae22",
+  "contract_id": "82c51ab25ce36876c982a6afb19e5cf7",
+  "focused_slot": 2,
+  "focus_mode": "manual"
 }

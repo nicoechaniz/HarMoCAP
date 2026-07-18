@@ -1,0 +1,33 @@
+# H3 — configuración PINEADA del fine-tuning ft1 (fuente de verdad del run).
+# Protocolo validate-hyperparams: cualquier desvío respecto de esto se registra
+# como nueva entrada en el manifest del run. Comparabilidad: el eval usa
+# scripts/eval_pose.py con protocolo fijo, idéntico para baseline y candidato.
+
+run_name: ft1_crowdpose_mixed
+base_checkpoint: yolo26m-pose.pt        # preentrenado COCO (transfer, roadmap)
+data: configs/dataset_mixed_ft1.yaml    # CrowdPose-train COCO-17 + 20k COCO seed=0
+
+hyperparameters:
+  epochs: 40
+  imgsz: 640
+  batch: -1            # auto-batch en la 3090 (24 GB)
+  seed: 0
+  deterministic: true
+  optimizer: auto      # default documentado de Ultralytics
+  lr0: null            # null = default del optimizador auto
+  patience: 15         # early-stopping conservador
+  # augmentations: defaults de pose de Ultralytics; fliplr=0.5 con flip_idx
+  # auditado en configs/dataset_mixed_ft1.yaml (scripts/convert_crowdpose.py)
+
+eval_protocol:
+  script: scripts/eval_pose.py
+  imgsz: 640
+  batch: 16
+  conf_iou_nms: defaults de model.val()
+  benchmarks: [crowdpose_val_coco17, coco_pose_val2017]
+
+go_no_go:
+  # Umbrales firmados por el usuario al aprobar el plan H3:
+  gain_crowdpose_ap_min: 1.5      # ΔmAP50-95 mínimo en CrowdPose-val
+  regression_coco_ap_max: 1.0     # caída máxima tolerada en COCO-pose val
+  decision: usuario (con la tabla comparativa a la vista)
