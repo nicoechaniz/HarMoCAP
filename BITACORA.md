@@ -126,3 +126,13 @@ T1.2 (codex Sol) cerrada y verificada E2E EN VIVO por CompAII (el sandbox de cod
 Entregado: `beacon_spatial.contract.json` + golden (69 OSCdefs formalizados, sin voice_model_alias — el contraejemplo canonico del hibrido D1), dump de estado bidireccional gateado por contract_id con cola por requester, `/hello` con rebroadcast 1 Hz, listen configurable via BEACON_OSC_HOST/PORT (loopback por default, 0.0.0.0 abre remoto), tests 6/6, conftest.py para pytest sin hacks.
 
 F1 (contratos) queda completa para el MVP: beacon-spatial + shaper tienen manifiesto formal; harmonic-weaver define las plantillas. F2 (extraccion del shaper) es la proxima fase grande.
+
+## 2026-07-18 - S9 - Wave 4 extraction and source drivers
+
+T2.2 closed: the digital-beacon Shaper is now the standalone `harmonic-shaper` package (`795972d`). The extraction includes the 32-voice engine, state store, OSC receiver, API/WebSocket state surface, MIDI controls, and pure NumPy renderer. Audit evidence: isolated editable installation, 13 passing tests plus one optional-dependency skip, CLI argument surface, and a live headless HTTP API mutation/panic-release probe. No audible-output claim was made; R24 validation remains part of T4.5.
+
+T3.1 closed: `nature/` was migrated into beacon-spatial (`4532fa9`): ResonantFilter, SampleLayer, and the minimal vendorized `harmonic_mask` implementation. The source-tree `nh_analysis` dependency is absent. Audit evidence: 13 passing tests and a real synthetic separation probe with finite output and exact harmonic-plus-residual reconstruction.
+
+T4.3a and T4.3c closed in harmonic-weaver (`5616a2f`): HarMoCAP and ECG source drivers, including focus/state propagation, stream gating, lease behavior, ECG edge-trigger semantics, and 30 passing combined tests at integration.
+
+T4.3b was not closed: Kimi returned an explicit quota 403 after creating an untested partial MIDI driver. The partial work is being recovered through the active Codex GPT lane; it is not committed or accepted.
