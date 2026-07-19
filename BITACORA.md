@@ -292,3 +292,14 @@ Autoauditoria adversarial post-implementacion (agente independiente sobre el com
 **Re-validacion post-fix** (tabla actualizada en `tracking_identity_eval.json`): (a) 55.7/56.3 → (b) 45.8/50.5 → (c) **14.3/10.4** slot-switches/min (221/653 rebinds). Las configs a y b REPRODUCEN exacto (banco estable); c empeoro levemente vs la corrida pre-fix (11.0/8.3) porque los gates estrictos rechazan reasociaciones que antes pasaban — parte de esas eran precisamente las fusiones A1/M2. Para musica, fusionar identidades es peor que separarlas: trade-off correcto. 55/55 tests.
 
 **Integracion del merge con Nico**: el espejo AlterMundi traia 12 commits de Nico (ecosistema harmonic-weaver/shaper/beacon-spatial + ensayo fisico en vivo consumiendo HarMoCAP 1.1). Merge resuelto (BITACORA con doble numeracion S6 documentada; su realtime_metrics preservado como `realtime_metrics_nico_v4l2.json`). De su bitacora S14 salio un hallazgo que nos toca: `verticality` es el UNICO rango firmado (-1..1) y ningun fixture lo ejercitaba — su manifiesto con bounds (0,1) paso todos los tests y exploto con datos vivos. Fix nuestro: fase C2 de inversion en la sesion sintetica (min verticality -0.97, con assert de invariante en el generador), nota en spec, kit regenerado. Coordinacion pendiente cuando vuelva Mariano: el salto a contrato 1.2 gatea el stream para el kit 1.1 que Nico usa en vivo — hay que sincronizar actualizacion de kit + manifiesto del driver harmocap en harmonic-weaver.
+
+Addendum S6b — descomposicion del overhead del modo grupo (video 1, capa 3 activa; `reports/20260717_e71e14a/group_mode_overhead.json`):
+
+| Variante | IDs unicos | sw/min | fps 3090 |
+|---|---|---|---|
+| ReID + GMC (config actual) | 214 | **14.3** | 33.5 |
+| ReID, sin GMC | 262 | 16.5 | 46.0 |
+| sin ReID, con GMC | 209 | 18.8 | 63.9 |
+| sin ReID, sin GMC | 226 | 17.7 | **135.0** |
+
+Lectura: la REASOCIACION DE SLOTS (capa 3) hace el trabajo pesado — sin ReID ni GMC igual da 17.7 sw/min (vs 55.7 del baseline ByteTrack). ReID+GMC compran la mejora marginal 17.7→14.3 a costo ~4x de fps. Implicancia para Mac/mps: `with_reid: False` + `gmc_method: none` es un modo grupo viable (~4x mas barato, identidad casi igual). El bench es cámara en mano; con cámara fija el aporte de GMC deberia caer. Config default se mantiene (máxima identidad en 3090, 33 fps = tiempo real); el knob queda documentado para decision del usuario.
