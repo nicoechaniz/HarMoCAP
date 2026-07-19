@@ -48,7 +48,7 @@ El techo de ReID también está declarado: el encoder es un clasificador genéri
 
 ### 3.3 La reasociación de slots: la capa propia
 
-La capa 3 opera donde los trackers ya fallaron: un track murió y su persona reaparece con track_id nuevo. En lugar de apariencia usa tres evidencias geométricas, cada una con su gate en `configs/identity.yaml → reacquisition`:
+La capa 3 opera donde los trackers ya fallaron: un track murió y su persona reaparece con track_id nuevo. En lugar de apariencia usa tres evidencias geométricas, cada una con su *gate* — umbral de aceptación, término que se conserva en todo el proyecto por su uso en la configuración — en `configs/identity.yaml → reacquisition`:
 
 | Evidencia | Mecanismo | Gate |
 |---|---|---|
@@ -58,7 +58,7 @@ La capa 3 opera donde los trackers ya fallaron: un track murió y su persona rea
 
 El ciclo de vida del slot hace de sustrato: al perder su track, el slot no se libera sino que atraviesa `OCCLUDED` (gracia de oclusión) y `RELEASING` (ventana de espera) antes de emitir tombstones y quedar libre. Durante esa ventana, todo track nuevo se evalúa contra todos los slots ausentes **antes** de recibir un slot libre — el orden importa: si la asignación libre corriera primero, el track recién nacido ocuparía un slot vacío y la reasociación llegaría tarde. Los pares que pasan los gates se resuelven por asignación greedy determinista (distancia, con desempate total por slot y track). El ganador recupera su slot_id: para el consumidor, la persona nunca dejó de ser quien era. Si el salto de posición supera el umbral de teleport (0.25), el suavizador y los buffers de features se resetean — las muestras previas a la oclusión producirían derivadas espurias — pero la identidad se conserva.
 
-La regla de diseño que gobierna los umbrales merece enunciarse porque no es simétrica: **fusionar dos identidades es peor que separarlas**. Un slot que salta de una persona a otra inyecta al mapeo una discontinuidad disfrazada de continuidad; un slot nuevo solo reinicia una voz. Los gates arrancan conservadores por eso, y el hallazgo más serio de la autoauditoría (A1, BITACORA S6b) fue precisamente un camino — la rama de salida por borde — que carecía de gate de distancia y habilitaba la fusión que la capa debía impedir. El fix estricto costó métrica bruta (14.3 vs 11.0 switches/min pre-fix) y ese costo es correcto: parte de lo que la versión permisiva "recuperaba" eran fusiones.
+La regla de diseño que gobierna los umbrales merece enunciarse porque no es simétrica: **fusionar dos identidades es peor que separarlas**. Un slot que salta de una persona a otra inyecta al mapeo una discontinuidad disfrazada de continuidad; un slot nuevo solo reinicia una voz. Los gates parten conservadores por eso, y el hallazgo más serio de la autoauditoría (A1, BITACORA S6b) fue precisamente un camino — la rama de salida por borde — que carecía de gate de distancia y habilitaba la fusión que la capa debía impedir. La corrección estricta costó métrica bruta (14.3 vs 11.0 switches/min pre-fix) y ese costo es correcto: parte de lo que la versión permisiva "recuperaba" eran fusiones.
 
 ## 4. Los dos modos: perfiles, no ramas
 
@@ -75,7 +75,7 @@ En ambos modos se emiten los 8 slots **y** el mensaje `/crowd` (contrato 1.2): o
 
 ## 5. La evidencia
 
-La validación comparativa (`scripts/eval_tracking.py`, resultados en `tracking_identity_eval.json`) usa dos videos de baile con oclusiones y cruces reales. La métrica principal — slot-switches por minuto: cuántas veces un slot arranca de cero — es un proxy sin ground truth: no distingue un switch legítimo de uno espurio, y por eso sirve para comparar configuraciones sobre el mismo material, no como medida absoluta de calidad.
+La validación comparativa (`scripts/eval_tracking.py`, resultados en `tracking_identity_eval.json`) usa dos videos de baile con oclusiones y cruces reales. La métrica principal — slot-switches por minuto: cuántas veces un slot se reinicia desde cero — es un proxy sin ground truth: no distingue un switch legítimo de uno espurio, y por eso sirve para comparar configuraciones sobre el mismo material, no como medida absoluta de calidad.
 
 | Configuración | IDs únicos (v1 / v2) | switches/min (v1 / v2) | fps proceso (RTX 3090) |
 |---|---|---|---|
