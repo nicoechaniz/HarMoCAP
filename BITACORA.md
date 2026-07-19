@@ -335,3 +335,11 @@ Physical calibration captured from the keyboard MIDI port:
 `harmonic-shaper` now defaults to configured `sequential_banks`: MIDI `24..55` maps momentarily to `n=1..32`, and MIDI `72..103` maps to the same partials as toggle/sustain. Every selected partial is exactly `f1*n`; no 12-TET or octave adaptation remains in this mode. Notes outside the configured banks are ignored to prevent intermediate transpose positions from silently reverting to a tempered behavior. The bank starts and size are generic config/CLI values, not a device-name dependency; the former mapper remains available only as explicit `legacy_hybrid` compatibility mode.
 
 Verification: 70 shaper tests pass, including new mapping/lifecycle/safety coverage. Live MIDI E2E through the running JACK/R24 shaper passed: MIDI 24 started `n=1 @ 40.4 Hz` and released on note-off; MIDI 72 started `n=1 @ 40.4 Hz`, survived its note-off, and released on the second press. Reference: `harmonic-shaper/docs/NATIVE_MIDI_HARMONIC_BANKS.md`.
+
+## 2026-07-19 - S18 - Live HarMoCAP to Harmonic Shaper integration
+
+The live integration path was exercised from a V4L2 camera through HarMoCAP OSC, harmonic-weaver, and the audible JACK/R24 Shaper. The promoted ft2 engine and fallback checkpoint were not present locally, so the launcher now accepts an explicit `--harmocap-checkpoint` for a single run without changing `configs/model.yaml`. The validated live run used the locally available `yolo26m-pose.pt`; it is integration evidence only, not a replacement evaluation for ft2.
+
+Evidence before the runtime stopped: 827 recorded HarMoCAP frames, 2,923 instrument-route records, active Shaper partials at exact `f1*n`, and direct user confirmation that movement produced a musical audible response. The scripted hardware-free rehearsal also passed completely (`t45-20260719T092417Z`), including focused-subject partials `1..5`, panic release/rearm, and finite non-silent audio evidence.
+
+The live camera process later stopped on `RuntimeError: CUDA error: an illegal memory access was encountered` in Ultralytics BoT-SORT ReID. This is an open stability failure in the CUDA/ReID path, separate from the validated OSC-to-audio control path. No claim of sustained GPU stability is made.
