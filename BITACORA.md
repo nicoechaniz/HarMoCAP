@@ -230,3 +230,17 @@ Pendientes sin cambios: lease recovery del engine (source absent no se recupera 
 
 **Pendiente para Nico:** re-ensayo en vivo (card F5-A2) — con los fixes, las voces del shaper deberían disparar; además cubre el ensayo audible (Fable A2).
 
+
+## 2026-07-18 - S15 - start-live-stack.sh: el stack en vivo en un comando
+
+Tras el apagon (sin perdida: todo estaba commiteado), se construyo el launcher que faltaba para el re-ensayo en vivo (F5-A2). harmonic-weaver `0f735db`, pusheado a nicoechaniz + AlterMundi.
+
+- `scripts/start-live-stack.sh`: levanta beacon-spatial -> shaper -> weaver runtime -> push de escena -> HarMoCAP realtime (+ ECG sim opcional) con gates de readiness reales entre etapas (OSC hello contra el contrato vivo, HTTP API, TCP WS), bootstrap de venvs (uv sync para weaver, venv+pip -e para shaper), preflight de puertos, teardown en orden inverso ante Ctrl-C o muerte de cualquier componente, pidfile + `--stop <run-id|latest>` para corridas detached. Opciones documentadas en el header y `--help`.
+- `rehearsal/push_scene.py`: CLI standalone para upsert/switch de escenas por Stage WS (reusa el StageClient del runner).
+- `rehearsal/weaver_runtime.py`: nuevo arg `--lease-ms` (default 2500) cableado a los tres manifests de fuentes. El default en vivo es 300000 para que un dropout transitorio no trabe el gate en absent permanente (la recuperacion de lease del engine sigue abierta, card F5-ENG).
+
+Smoke test E2E real (2 corridas): (1) GPU — stack completo arriba, escena event-demo activa, las 5 rutas del shaper dispararon con datos de camara reales (fix S14 confirmado en vivo), pero el crash intermitente CUDA (illegal instruction, RTX 2060 + driver 550) mato harmocap a los ~60s y el script bajo todo limpiamente, sin huerfanos. (2) `--harmocap-device cpu` (nueva opcion, CUDA_VISIBLE_DEVICES="" solo para ese proceso) — corrida sostenida 90s+, 26 writes a instrumentos en 78s, 520 frames grabados, cero crashes, `--stop` verificado con teardown completo.
+
+La opcion `--harmocap-device cpu` queda como fallback operativo mientras el crash CUDA intermitente no se resuelva (hipotesis: driver 550.163.01 viejo; update de driver pendiente como mantenimiento separado).
+
+Pendiente sin cambios: re-ensayo en vivo con Nico (F5-A2, ahora es un solo comando), ensayo audible del shaper, lease recovery del engine.
