@@ -7,10 +7,20 @@ advierte que acumulamos cuatro degradaciones (resolución bajo el codo de la
 curva, cambio de dominio, cero ajuste fino, cabezas de ~10 px) que nadie midió
 juntas: sin medir, no se distingue una señal de densidad de ruido caro.
 
+⚠ LIMITACIÓN COMPROBADA DE ESTE SCRIPT (2026-07-20). El punto 1 de abajo
+descansa en una premisa FALSA: toma el conteo de detección como referencia
+donde las bboxes son grandes, pero el tamaño mediano de bbox se calcula sobre
+lo que la detección ENCONTRÓ, y lo que no encuentra es justamente la gente
+chica. En un plano con dos bailarines grandes y setenta espectadores sentados
+al fondo, la mediana dice "régimen ralo" y el conteo dice 4. Este script
+reportó por eso sesgos de 4x a 30x y correlación nula, que leídos literalmente
+cerraban la puerta; los mapas de calor superpuestos mostraron lo contrario.
+**Sus números NO deciden nada por sí solos: la evidencia que decidió fue
+visual.** Un veredicto absoluto exige anotar cuadros a mano.
+
 Qué mide, sin anotación humana:
-  1. **Acuerdo en régimen ralo**: donde las personas son grandes, la detección
-     es confiable; la correlación y el sesgo entre densidad y detección ahí
-     calibran el modelo sin ground truth.
+  1. Acuerdo con la detección donde las bboxes son grandes — útil solo como
+     indicio, con la salvedad de arriba.
   2. **Control cruzado entre checkpoints** (QNRF vs NWPU): si dos modelos
      entrenados en datasets distintos coinciden, hay señal; si divergen,
      estamos fuera de distribución y el número no significa nada.
