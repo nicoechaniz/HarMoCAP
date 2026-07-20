@@ -48,9 +48,11 @@ No hay ownership permanente por agente. La tarea o el usuario define el rol acti
 
 ## Flujo Git y espejos
 
-El repositorio principal es `nicoechaniz/HarMoCAP`, remoto local `origin`. El espejo de la organizacion es `AlterMundi/HarMoCAP`, remoto local `altermundi`.
+El proyecto tiene tres repositorios: uno personal por cada linea de trabajo (`Mar-IA-no/HarMoCAP` y `nicoechaniz/HarMoCAP`) y el compartido de la organizacion, `AlterMundi/HarMoCAP`, que es el punto de encuentro de ambas.
 
-`origin` tiene dos `pushurl` (nicoechaniz primero, AlterMundi despues): el flujo normal `git push` publica ambos. Tras cada push se verifica que ambos remotos queden en el mismo commit; si el push a AlterMundi rebota porque la linea de Mariano avanzo primero, se mergea `altermundi/main` antes de reintentar (verificado 2026-07-19 que los trabajos no se pisan; ante conflicto en artefactos de `reports/`, preservar ambas versiones como archivos separados).
+**La configuracion de remotos es por clon, no global**: cada quien apunta `origin` a su repositorio personal y agrega `AlterMundi` como segundo `pushurl` de `origin`, de modo que el flujo normal `git push` publica el repositorio personal y el compartido en una sola operacion. `altermundi` queda ademas como remoto propio para fetch. Este documento describe la topologia, no la configuracion local de nadie: al clonar, cada agente verifica con `git remote -v` cual es su `origin` antes de asumir nada.
+
+Tras cada push se verifica que los destinos queden en el mismo commit. Si el push a AlterMundi rebota porque la otra linea avanzo primero, se mergea `altermundi/main` antes de reintentar (verificado 2026-07-19 y 2026-07-20 que los trabajos no se pisan; ante conflicto en artefactos de `reports/`, preservar ambas versiones como archivos separados).
 
 ## Fuentes conceptuales y tecnicas
 
