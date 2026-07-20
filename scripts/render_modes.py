@@ -138,7 +138,7 @@ def main() -> int:
     ap = argparse.ArgumentParser(description=__doc__)
     ap.add_argument("videos", nargs="+", type=Path)
     ap.add_argument("--out", type=Path,
-                    default=REPO / "Biblioteca/videos_people_dancing_modos")
+                    default=REPO / "Biblioteca/test/videos_people_dancing_modos")
     args = ap.parse_args()
     args.out.mkdir(parents=True, exist_ok=True)
     for v in args.videos:

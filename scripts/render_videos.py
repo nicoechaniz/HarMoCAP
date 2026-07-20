@@ -2,8 +2,8 @@
 """Inferencia batch sobre videos con 4 variantes de render (una sola pasada).
 
 Modelo: best.pt de ft2 (época 30, mAP50-95 0.6261 en CrowdPose-val).
-Entrada:  Biblioteca/videos_people_dancing/*.mp4
-Salida:   Biblioteca/videos_people_dancing_inferido/
+Entrada:  Biblioteca/test/videos_people_dancing/*.mp4
+Salida:   Biblioteca/test/videos_people_dancing_inferido/
             01_esqueleto/     esqueleto pro, color por persona (track id)
             02_bbox_trackid/  ídem + bbox + id
             03_estelas/       ídem + trails de muñecas/tobillos (15 frames)

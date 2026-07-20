@@ -96,7 +96,7 @@ Dos lecturas salen de esa tabla. Primero: la reasociación geométrica sola resu
 
 ### 5.1 Banco ampliado y corrida extremo a extremo
 
-La validación se extendió al conjunto completo de material (`Biblioteca/videos_people_dancing`: cinco videos de baile con dos a ocho personas, dos videos de pogo con multitud densa), en tres pasadas complementarias cuyos artefactos quedan como renders comparables: identidad (`videos_people_dancing_slots/`, cada video con tracker anterior y con las tres capas) y modos (`videos_people_dancing_modos/`, cada video en grupo y en masa, este último con los agregados de multitud sobrepuestos en el cuadro).
+La validación se extendió al conjunto completo de material (`Biblioteca/test/videos_people_dancing`: cinco videos de baile con dos a ocho personas, dos videos de pogo con multitud densa), en tres pasadas complementarias cuyos artefactos quedan como renders comparables: identidad (`test/videos_people_dancing_slots/`, cada video con tracker anterior y con las tres capas) y modos (`test/videos_people_dancing_modos/`, cada video en grupo y en masa, este último con los agregados de multitud sobrepuestos en el cuadro).
 
 La tercera pasada atraviesa el sistema entero hasta el consumidor: el productor emitiendo por UDP y el receptor del kit — Python del sistema, aislado, sin acceso al repositorio — decodificando el contrato 1.2 completo.
 
@@ -145,4 +145,4 @@ Instrumentar el tempo produjo además un hallazgo sobre lo ya entregado: tres de
 
 ---
 
-*Fuentes: `BITACORA.md` S4-S7 · `reports/20260717_e71e14a/{tracking_identity_eval,group_mode_overhead,engine_build,realtime_metrics}.json` · `configs/{model,identity,tracker_group}.yaml`, `configs/modes/` · `docs/INTERFACE_SPEC.md` · `scripts/{eval_tracking,render_slots,render_modes}.py` · sesiones `outputs/sessions/e2e_{group,crowd}.jsonl` · `reports/20260717_e71e14a/{tempo_validation,density_gate}.json` · `Biblioteca/{crowd-counting-densidad,densidad_overlay}/` · commits `1c18a1a`, `536a264`, `c6eea53`, `9dd0687`, `6b0d54e`.*
+*Fuentes: `BITACORA.md` S4-S7 · `reports/20260717_e71e14a/{tracking_identity_eval,group_mode_overhead,engine_build,realtime_metrics}.json` · `configs/{model,identity,tracker_group}.yaml`, `configs/modes/` · `docs/INTERFACE_SPEC.md` · `scripts/{eval_tracking,render_slots,render_modes}.py` · sesiones `outputs/sessions/e2e_{group,crowd}.jsonl` · `reports/20260717_e71e14a/{tempo_validation,density_gate}.json` · `Biblioteca/crowd-counting-densidad/` y `Biblioteca/test/densidad_overlay/` · commits `1c18a1a`, `536a264`, `c6eea53`, `9dd0687`, `6b0d54e`.*
