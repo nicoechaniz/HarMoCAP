@@ -60,11 +60,11 @@ outputs/sessions/
 # exceden el límite de 100 MB de GitHub)
 
 # Barridos y tests locales de inferencia (videos regenerables)
-Biblioteca/test/            # todo el material de prueba vive acá (videos, renders, salidas)
+# todo el material de prueba vive acá (videos, renders, salidas)
+Biblioteca/test/
 
 # artefactos de densidad (build, regenerables con scripts/export_density.py)
 outputs/density/
 outputs/zip_eval/
-Biblioteca/test/densidad_render/
 *.onnx
 *.onnx.data
