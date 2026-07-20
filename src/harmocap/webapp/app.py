@@ -124,9 +124,12 @@ def build() -> gr.Blocks:
     return demo
 
 
-def main(share: bool = False, port: int = 7860):
-    build().launch(server_name="127.0.0.1", server_port=port,
-                   inbrowser=True, share=share)
+def main(share: bool = False, port: int = 7860, host: str = "127.0.0.1"):
+    # host por defecto 127.0.0.1: solo esta máquina. Para exponer en una red
+    # confiable (p. ej. una VPN) se pasa la IP de esa interfaz; nunca 0.0.0.0
+    # a la ligera, que incluiría la interfaz pública.
+    build().launch(server_name=host, server_port=port,
+                   inbrowser=(host == "127.0.0.1"), share=share)
 
 
 if __name__ == "__main__":
