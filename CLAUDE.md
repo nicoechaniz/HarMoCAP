@@ -46,11 +46,11 @@ No hay ownership permanente por agente. La tarea o el usuario define el rol acti
 - `BITACORA.md`: registro cronologico de decisiones y estados observados.
 - `PENDIENTES.md`: archivo exclusivo del usuario.
 
-## Flujo Git
+## Flujo Git y espejos
 
-El repositorio canonico es `Mar-IA-no/HarMoCAP`, remoto local `origin` (unico destino de fetch y push). Todo commit y push va SOLO a `origin`.
+El repositorio canonico es `Mar-IA-no/HarMoCAP`, remoto local `origin`. `AlterMundi/HarMoCAP` (remoto local `altermundi`) es el repositorio compartido con la linea de Nico (ecosistema harmonic-weaver/shaper/beacon).
 
-`AlterMundi/HarMoCAP` (remoto local `altermundi`, solo fetch) dejo de ser espejo el 2026-07-19: es la linea propia de Nico (ecosistema harmonic-weaver/shaper/beacon). Las dos lineas avanzan por separado; que se toma de cada una se decide caso por caso (decision del usuario). NO restaurar el push dual ni pushear a `altermundi`.
+`origin` tiene dos `pushurl` (Mar-IA-no primero, AlterMundi despues): el flujo normal `git push` publica ambos. Tras cada push se verifica que ambos remotos queden en el mismo commit; si el push a AlterMundi rebota porque la linea de Nico avanzo primero, se mergea `altermundi/main` antes de reintentar (verificado 2026-07-19 que los trabajos no se pisan; ante conflicto en artefactos de `reports/`, preservar ambas versiones como archivos separados).
 
 ## Fuentes conceptuales y tecnicas
 
