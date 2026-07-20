@@ -2,40 +2,40 @@
   "backend": {
     "loaded_checkpoint": "/mnt/m2-1TB/HarMoCAP/outputs/harmocap-m-pose-ft2.engine",
     "is_engine": true,
-    "imgsz": 640,
+    "imgsz": 1280,
     "conf": 0.05,
     "max_det": 300,
-    "tracker": "/mnt/m2-1TB/HarMoCAP/configs/tracker_group.yaml"
+    "tracker": "bytetrack.yaml"
   },
   "capture_profile": {
-    "source": "outputs/test_video.mp4",
+    "source": "Biblioteca/videos_people_dancing/Marolio _ El pogo mas grande del mundo (720, youtube).mp4.mp4",
     "backend": "FFMPEG",
-    "width": 810,
-    "height": 1080,
+    "width": 640,
+    "height": 360,
     "fps": 30.0,
     "buffersize_req": 1,
-    "fourcc": 877677894
+    "fourcc": 875967080
   },
-  "capture_dropped": 41,
-  "recorder_dropped": null,
-  "frames": 408,
-  "emitted": 2278,
+  "capture_dropped": 13,
+  "recorder_dropped": 0,
+  "frames": 1036,
+  "emitted": 2295,
   "lat_sw_ms": {
-    "p50": 27.069,
-    "p95": 30.709,
-    "p99": 32.454,
-    "mean": 27.163647222222224,
-    "n": 360
+    "p50": 9.894,
+    "p95": 12.697,
+    "p99": 13.707,
+    "mean": 10.282118888888888,
+    "n": 900
   },
   "jitter_ms": {
-    "p50": 0.804,
-    "p95": 3.975,
-    "p99": 5.658,
-    "mean": 1.2762222222222221,
-    "n": 360
+    "p50": 0.238,
+    "p95": 0.858,
+    "p99": 2.078,
+    "mean": 0.3225411111111111,
+    "n": 900
   },
-  "stream_id": "5c90e36fa317e4c4",
+  "stream_id": "3136cdc60e6a18b1",
   "contract_id": "9bf08a0d45b3adc747e0cbe1d61bcad4",
-  "focused_slot": 0,
+  "focused_slot": null,
   "focus_mode": "auto"
 }

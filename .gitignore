@@ -63,3 +63,5 @@ Biblioteca/videos_people_dancing_inferido/
 
 # Barridos y tests locales de inferencia (videos regenerables)
 Biblioteca/test/
+Biblioteca/videos_people_dancing_slots/
+Biblioteca/videos_people_dancing_modos/
