@@ -92,7 +92,9 @@ def main() -> int:
                 break
             if show and getattr(pipe, "last_frame_img", None) is not None:
                 img = pipe.last_frame_img.copy()
-                h = img.shape[0]
+                # Mirror for user perspective (like looking in a mirror).
+                img = cv2.flip(img, 1)
+                h, w = img.shape[0], img.shape[1]
                 key_to_slot, display_number = visible_people_map(pipe.last_persons)
                 for p in pipe.last_persons:
                     if not p.present:
@@ -125,6 +127,22 @@ def main() -> int:
                             f"[1-{len(key_to_slot)}]=persona izq->der 0/a=auto q=salir",
                             (10, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
                             (255, 255, 255), 1)
+
+                # ── Ceiling overlay (right side gradient) ──
+                bar_w = 32
+                for y in range(0, h, 2):
+                    frac = 1.0 - y / h                         # 0=bottom, 1=top
+                    n_ceil = 1 + int(round(frac * 31))         # harmonic ceiling at this height
+                    # Color: green(graves) → yellow(medios) → red(agudos)
+                    if n_ceil <= 8:    col_bar = (0, 180, 0)   # green: deep
+                    elif n_ceil <= 20: col_bar = (0, 220, 220) # yellow: mid
+                    else:              col_bar = (0, 0, 255)   # red: high
+                    cv2.line(img, (w - bar_w, y), (w, y), col_bar, 2)
+                # Zone labels on the bar
+                cv2.putText(img, "1-32", (w - bar_w - 60, 20),  cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 0, 255), 1)
+                cv2.putText(img, "1-24", (w - bar_w - 60, h//2), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 220, 220), 1)
+                cv2.putText(img, "1-5",  (w - bar_w - 50, h-10), cv2.FONT_HERSHEY_SIMPLEX, 0.45, (0, 180, 0), 1)
+
                 cv2.imshow("HarMoCAP", img)
                 # If the user closed the window, stop showing (don't recreate).
                 if cv2.getWindowProperty("HarMoCAP", cv2.WND_PROP_VISIBLE) < 1:
