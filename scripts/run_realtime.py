@@ -124,6 +124,10 @@ def main() -> int:
                             (10, 22), cv2.FONT_HERSHEY_SIMPLEX, 0.55,
                             (255, 255, 255), 1)
                 cv2.imshow("HarMoCAP", img)
+                # If the user closed the window, stop showing (don't recreate).
+                if cv2.getWindowProperty("HarMoCAP", cv2.WND_PROP_VISIBLE) < 1:
+                    show = False
+                    continue
                 key = cv2.waitKey(1) & 0xFF
                 if key in (ord("q"), 27):
                     break
