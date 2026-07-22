@@ -47,9 +47,9 @@ def pad_from_xy(kp_x: float, kp_y: float) -> int | None:
     if not (0.0 <= kp_x <= 1.0 and 0.0 <= kp_y <= 1.0):
         return None
     # Flip X for mirrored display: right hand in original → left in mirror.
-    # Y: HarMoCAP y=0 at top, grid row=0 at top → direct mapping (no flip).
+    # Flip Y: HarMoCAP y=0 at top → grid row=7 (top), y=1 at bottom → row=0.
     col = int((1.0 - kp_x) * COLS)
-    row = int(kp_y * ROWS)
+    row = int((1.0 - kp_y) * ROWS)
     col = max(0, min(COLS - 1, col))
     row = max(0, min(ROWS - 1, row))
     return pad_index(col, row)
@@ -153,8 +153,10 @@ def main() -> int:
 
                 # ── 4×8 serpentine pad grid ──
                 for col in range(COLS):
-                    for row in range(ROWS):
-                        pid = pad_index(col, row)
+                    for grid_row in range(ROWS):
+                        pid = pad_index(col, grid_row)
+                        # grid_row 0 = bottom of model → renders at bottom of canvas
+                        row = ROWS - 1 - grid_row
                         x0 = col * cell_w
                         y0 = row * cell_h
                         x1 = x0 + cell_w
