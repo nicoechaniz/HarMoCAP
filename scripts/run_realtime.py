@@ -42,16 +42,21 @@ def pad_index(col: int, row: int) -> int:
     return col * ROWS + (ROWS - 1 - row)
 
 
-def pad_from_xy(kp_x: float, kp_y: float) -> int | None:
-    """Map keypoint (0-1 normalised) to pad index 0..31, or None if invalid."""
-    if not (0.0 <= kp_x <= 1.0 and 0.0 <= kp_y <= 1.0):
+def pad_from_xy(kp_x: float, kp_y: float, w: int, h: int) -> int | None:
+    """Map keypoint to pad index 0..31, or None if invalid.
+    
+    HarMoCAP normalises X relative to height (not width), so kp_x * h
+    gives the pixel X position.  Y is unit-normalised (kp_y * h = pixel Y).
+    """
+    if not (0.0 <= kp_y <= 1.0):
         return None
-    # Flip X for mirrored display: right hand in original → left in mirror.
-    # Flip Y: HarMoCAP y=0 at top → grid row=7 (top), y=1 at bottom → row=0.
-    col = int((1.0 - kp_x) * COLS)
-    row = int((1.0 - kp_y) * ROWS)
-    col = max(0, min(COLS - 1, col))
-    row = max(0, min(ROWS - 1, row))
+    # Mirror X for flipped display (same transform as skeleton drawing)
+    px = w - 1 - int(kp_x * h)
+    py = int(kp_y * h)
+    col = max(0, min(COLS - 1, px * COLS // w))
+    row = max(0, min(ROWS - 1, py * ROWS // h))
+    # Flip row: HarMoCAP Y=0 at top → grid row=7 (top), Y=1 at bottom → row=0
+    row = ROWS - 1 - row
     return pad_index(col, row)
 
 
@@ -146,7 +151,7 @@ def main() -> int:
                     for kp_idx, label in ((9, "L"), (10, "R")):
                         kp = p.keypoints[kp_idx]
                         if kp.state != 2:
-                            pid = pad_from_xy(kp.x, kp.y)
+                            pid = pad_from_xy(kp.x, kp.y, w, h)
                             if pid is not None:
                                 active_pads.add(pid)
                                 hand_pads[label] = pid
@@ -188,7 +193,7 @@ def main() -> int:
                         continue
                     col = (0, 220, 255) if p.focused else (0, 180, 0)
                     points = {
-                        i: (w - 1 - int(k.x * w), int(k.y * h))
+                        i: (w - 1 - int(k.x * h), int(k.y * h))
                         for i, k in enumerate(p.keypoints)
                         if k.state != 2
                     }
@@ -206,9 +211,9 @@ def main() -> int:
                     for kp_idx, label in ((9, "L"), (10, "R")):
                         kp = p.keypoints[kp_idx]
                         if kp.state != 2:
-                            pid = pad_from_xy(kp.x, kp.y)
+                            pid = pad_from_xy(kp.x, kp.y, w, h)
                             if pid is not None:
-                                px = w - 1 - int(kp.x * w)
+                                px = w - 1 - int(kp.x * h)
                                 py = int(kp.y * h)
                                 hue = PAD_HUES[pid]
                                 cv2.putText(img, f"{label}→H{pid+1}",
