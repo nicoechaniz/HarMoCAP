@@ -188,7 +188,7 @@ def main() -> int:
                         continue
                     col = (0, 220, 255) if p.focused else (0, 180, 0)
                     points = {
-                        i: (w - 1 - int(k.x * h), int(k.y * h))
+                        i: (w - 1 - int(k.x * w), int(k.y * h))
                         for i, k in enumerate(p.keypoints)
                         if k.state != 2
                     }
@@ -208,7 +208,7 @@ def main() -> int:
                         if kp.state != 2:
                             pid = pad_from_xy(kp.x, kp.y)
                             if pid is not None:
-                                px = w - 1 - int(kp.x * h)
+                                px = w - 1 - int(kp.x * w)
                                 py = int(kp.y * h)
                                 hue = PAD_HUES[pid]
                                 cv2.putText(img, f"{label}→H{pid+1}",
