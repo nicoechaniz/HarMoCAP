@@ -141,7 +141,7 @@ def main() -> int:
                 active_pads: set[int] = set()
                 hand_pads: dict[str, int] = {}  # 'L'/'R' → pad 0..31
                 for p in pipe.last_persons:
-                    if not p.present:
+                    if not p.present or not p.focused:
                         continue
                     for kp_idx, label in ((9, "L"), (10, "R")):
                         kp = p.keypoints[kp_idx]
