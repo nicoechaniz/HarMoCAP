@@ -47,9 +47,9 @@ def pad_from_xy(kp_x: float, kp_y: float) -> int | None:
     if not (0.0 <= kp_x <= 1.0 and 0.0 <= kp_y <= 1.0):
         return None
     # Flip X for mirrored display: right hand in original → left in mirror.
-    # Flip Y: HarMoCAP y=0 at top, grid row=0 at bottom.
+    # Y: HarMoCAP y=0 at top, grid row=0 at top → direct mapping (no flip).
     col = int((1.0 - kp_x) * COLS)
-    row = int((1.0 - kp_y) * ROWS)
+    row = int(kp_y * ROWS)
     col = max(0, min(COLS - 1, col))
     row = max(0, min(ROWS - 1, row))
     return pad_index(col, row)
